@@ -790,9 +790,6 @@ tr:hover td { background: #F5F8FF; }
           <div style="position:relative" id="skuPickerWrap">
             <input type="text" class="form-input" id="skuSearchInput" placeholder="🔍 Ketik SKU atau nama produk..." autocomplete="off"
               oninput="filterSkuDropdown(this.value)" onfocus="showSkuDropdown()" style="font-size:13px">
-            <div id="skuDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--ltblue);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:500;box-shadow:0 8px 24px rgba(0,0,0,.12)">
-              <div id="skuDropdownList"></div>
-            </div>
           </div>
           <!-- Hidden value holder -->
           <input type="hidden" id="modalSku">
@@ -1576,6 +1573,16 @@ function showSkuDropdown() {
   filterSkuDropdown(document.getElementById('skuSearchInput').value);
 }
 
+function positionSkuDropdown() {
+  const input = document.getElementById('skuSearchInput');
+  const dd    = document.getElementById('skuDropdown');
+  if (!input || !dd) return;
+  const rect = input.getBoundingClientRect();
+  dd.style.left  = rect.left + 'px';
+  dd.style.top   = (rect.bottom + 2) + 'px';
+  dd.style.width = rect.width + 'px';
+}
+
 function filterSkuDropdown(q) {
   const list = document.getElementById('skuDropdownList');
   const dd   = document.getElementById('skuDropdown');
@@ -1592,23 +1599,24 @@ function filterSkuDropdown(q) {
     });
   }
   if (filtered.length === 0) {
-    list.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:var(--muted)">Tidak ada SKU yang cocok untuk "' + q + '"</div>';
+    list.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:var(--muted)">Tidak ada SKU yang cocok untuk &quot;' + q + '&quot;</div>';
   } else {
-    list.innerHTML = filtered.map(s => {
-      const skuHl  = highlight(s.sku,  query);
-      const nameHl = highlight(s.name, query);
-      const catBadge = s.cat ? '<span style="font-size:10px;background:#F0F5FF;color:var(--blue);padding:1px 5px;border-radius:3px;margin-left:4px">' + s.cat + '</span>' : '';
-      const safeSku  = s.sku.replace(/'/g,"\\'");
-      const safeName = s.name.replace(/'/g,"\\'");
-      return '<div class="sku-option" onclick="selectSku(\'' + safeSku + '\',\'' + safeName + '\')">'
+    list.innerHTML = filtered.map(function(s) {
+      var skuHl  = highlight(s.sku,  query);
+      var nameHl = highlight(s.name, query);
+      var catBadge = s.cat ? '<span style="font-size:10px;background:#F0F5FF;color:var(--blue);padding:1px 5px;border-radius:3px;margin-left:4px">' + s.cat + '</span>' : '';
+      var safeSku  = s.sku.replace(/['"\\]/g, function(c){ return '\\' + c; });
+      var safeName = s.name.replace(/['"\\]/g, function(c){ return '\\' + c; });
+      return '<div class="sku-option" onclick="selectSku(\'' + safeSku + '\', \'' + safeName + '\')">'
         + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        + '<span style="font-family:\'DM Mono\',monospace;font-size:11px;background:#EBF2FF;color:var(--blue);padding:2px 6px;border-radius:4px;white-space:nowrap">' + skuHl + '</span>'
+        + '<span style="font-family:DM Mono,monospace;font-size:11px;background:#EBF2FF;color:var(--blue);padding:2px 6px;border-radius:4px;white-space:nowrap">' + skuHl + '</span>'
         + '<span style="font-size:13px;color:var(--text);flex:1">' + nameHl + '</span>'
         + catBadge + '</div></div>';
     }).join('');
   }
+  positionSkuDropdown();
   dd.style.display = 'block';
-  setTimeout(() => { document.addEventListener('click', closeSkuOnOutside, { once: true }); }, 0);
+  setTimeout(function(){ document.addEventListener('click', closeSkuOnOutside, { once: true }); }, 0);
 }
 
 function highlight(text, query) {
@@ -2491,6 +2499,11 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="btn btn-primary" onclick="submitAdditionalSku()">✅ Tambah ke Priority List</button>
     </div>
   </div>
+</div>
+
+<!-- SKU SEARCH DROPDOWN PORTAL (outside modal to avoid overflow clipping) -->
+<div id="skuDropdown" style="display:none;position:fixed;background:white;border:1.5px solid var(--ltblue);border-radius:10px;max-height:260px;overflow-y:auto;z-index:99990;box-shadow:0 8px 32px rgba(0,0,0,.18);-webkit-overflow-scrolling:touch">
+  <div id="skuDropdownList"></div>
 </div>
 
 <!-- PHOTO CHOICE SHEET -->
