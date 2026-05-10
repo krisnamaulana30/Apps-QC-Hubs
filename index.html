@@ -1546,77 +1546,140 @@ function loadSavedSettings() {
 
 // ── SEARCHABLE SKU PICKER ──
 function getSkuPool() {
-  // Primary: inspItems (already normalized)
+  // Use inspItems if loaded (already normalized), else prioritySkus, else static PRIORITY_SKUS
+  let base = [];
   if (inspItems && inspItems.length > 0) {
-    const base = inspItems.map(s => ({ sku: s.sku || '', name: s.name || '', cat: s.cat || '' })).filter(s => s.sku);
-    const extra = additionalSkus.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
-    const seen = new Set(base.map(s => s.sku));
-    return [...base, ...extra.filter(s => !seen.has(s.sku))];
-  }
-  if (prioritySkus && prioritySkus.length > 0) {
-    const base = prioritySkus.map(s => ({
-      sku:  s.sku  || s.sku_code  || s['sku number']  || s['SKU Number']  || '',
-      name: s.name || s.product_name || s['product name'] || s['Product Name'] || '',
-      cat:  s.cat  || s.category  || s.l2_category || ''
+    base = inspItems
+      .map(s => ({ sku:(s.sku||'').trim(), name:(s.name||'').trim(), cat:(s.cat||'').trim() }))
+      .filter(s => s.sku);
+  } else if (prioritySkus && prioritySkus.length > 0) {
+    base = prioritySkus.map(s => ({
+      sku:  (s.sku || s.sku_code || s['sku number'] || s['SKU Number'] || '').trim(),
+      name: (s.name || s.product_name || s['product name'] || s['Product Name'] || '').trim(),
+      cat:  (s.cat || s.category || s.l2_category || s['L2 Category'] || '').trim()
     })).filter(s => s.sku);
-    const extra = additionalSkus.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
-    const seen = new Set(base.map(s => s.sku));
-    return [...base, ...extra.filter(s => !seen.has(s.sku))];
+  } else {
+    base = PRIORITY_SKUS.map(s => ({ sku:s.sku||'', name:s.name||'', cat:s.cat||'' }));
   }
-  const base = PRIORITY_SKUS.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
-  const extra = additionalSkus.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
   const seen = new Set(base.map(s => s.sku));
-  return [...base, ...extra.filter(s => !seen.has(s.sku))];
+  const extra = additionalSkus
+    .map(s => ({ sku:(s.sku||'').trim(), name:(s.name||'').trim(), cat:(s.cat||'').trim() }))
+    .filter(s => s.sku && !seen.has(s.sku));
+  return [...base, ...extra];
 }
 
-function showSkuDropdown() {
-  filterSkuDropdown(document.getElementById('skuSearchInput').value);
+// ── SKU DROPDOWN: appended directly to body to avoid any stacking/overflow issues ──
+function getOrCreateSkuDropdown() {
+  let dd = document.getElementById('skuDropdown');
+  if (!dd) {
+    dd = document.createElement('div');
+    dd.id = 'skuDropdown';
+    dd.style.cssText = [
+      'display:none',
+      'position:fixed',
+      'background:white',
+      'border:2px solid #2E7EF5',
+      'border-radius:12px',
+      'max-height:280px',
+      'overflow-y:auto',
+      'z-index:2147483647',
+      'box-shadow:0 12px 40px rgba(0,0,0,0.25)',
+      '-webkit-overflow-scrolling:touch',
+      'overscroll-behavior:contain'
+    ].join(';');
+    document.body.appendChild(dd);
+  }
+  return dd;
 }
 
 function positionSkuDropdown() {
   const input = document.getElementById('skuSearchInput');
-  const dd    = document.getElementById('skuDropdown');
-  if (!input || !dd) return;
-  const rect = input.getBoundingClientRect();
-  dd.style.left  = rect.left + 'px';
-  dd.style.top   = (rect.bottom + 2) + 'px';
-  dd.style.width = rect.width + 'px';
+  const dd    = getOrCreateSkuDropdown();
+  if (!input) return;
+  const rect  = input.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  const spaceAbove = rect.top - 8;
+  const height = Math.min(280, Math.max(spaceBelow, spaceAbove));
+  dd.style.width  = rect.width + 'px';
+  dd.style.left   = rect.left + 'px';
+  if (spaceBelow >= 120 || spaceBelow >= spaceAbove) {
+    dd.style.top    = (rect.bottom + 4) + 'px';
+    dd.style.bottom = 'auto';
+    dd.style.maxHeight = Math.min(280, spaceBelow) + 'px';
+  } else {
+    dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    dd.style.top    = 'auto';
+    dd.style.maxHeight = Math.min(280, spaceAbove) + 'px';
+  }
+}
+
+function showSkuDropdown() {
+  filterSkuDropdown(document.getElementById('skuSearchInput')?.value || '');
 }
 
 function filterSkuDropdown(q) {
-  const list = document.getElementById('skuDropdownList');
-  const dd   = document.getElementById('skuDropdown');
+  const dd   = getOrCreateSkuDropdown();
   const pool = getSkuPool();
   const query = q.trim().toLowerCase();
+
   let filtered;
   if (!query) {
-    filtered = pool.slice(0, 50);
+    filtered = pool.slice(0, 60);
   } else {
-    const keywords = query.split(/\s+/).filter(Boolean);
+    const kws = query.split(/\s+/).filter(Boolean);
     filtered = pool.filter(s => {
-      const haystack = (s.sku + ' ' + s.name + ' ' + (s.cat||'')).toLowerCase();
-      return keywords.every(kw => haystack.includes(kw));
+      const hay = (s.sku + ' ' + s.name + ' ' + s.cat).toLowerCase();
+      return kws.every(k => hay.includes(k));
     });
   }
+
   if (filtered.length === 0) {
-    list.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:var(--muted)">Tidak ada SKU yang cocok untuk &quot;' + q + '&quot;</div>';
+    dd.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#9CA3AF;text-align:center">Tidak ada SKU yang cocok</div>';
   } else {
-    list.innerHTML = filtered.map(function(s) {
-      var skuHl  = highlight(s.sku,  query);
-      var nameHl = highlight(s.name, query);
-      var catBadge = s.cat ? '<span style="font-size:10px;background:#F0F5FF;color:var(--blue);padding:1px 5px;border-radius:3px;margin-left:4px">' + s.cat + '</span>' : '';
-      var safeSku  = s.sku.replace(/['"\\]/g, function(c){ return '\\' + c; });
-      var safeName = s.name.replace(/['"\\]/g, function(c){ return '\\' + c; });
-      return '<div class="sku-option" onclick="selectSku(\'' + safeSku + '\', \'' + safeName + '\')">'
-        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        + '<span style="font-family:DM Mono,monospace;font-size:11px;background:#EBF2FF;color:var(--blue);padding:2px 6px;border-radius:4px;white-space:nowrap">' + skuHl + '</span>'
-        + '<span style="font-size:13px;color:var(--text);flex:1">' + nameHl + '</span>'
-        + catBadge + '</div></div>';
+    const rows = filtered.map(s => {
+      const hl = (t, q2) => {
+        if (!q2) return t;
+        return t.replace(new RegExp('(' + q2.split(/\s+/).filter(Boolean).map(k => k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')', 'gi'),
+          '<mark style="background:#FEF08A;border-radius:2px;padding:0 1px">$1</mark>');
+      };
+      const safeOnclick = 'selectSku(' + JSON.stringify(s.sku) + ',' + JSON.stringify(s.name) + ')';
+      return '<div onclick="' + safeOnclick.replace(/"/g,'&quot;') + '" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid #F3F4F6;transition:background 0.1s" onmouseover="this.style.background=\'#EFF6FF\'" onmouseout="this.style.background=\'\'">'
+        + '<span style="font-family:monospace;font-size:11px;background:#EBF2FF;color:#1A4FC4;padding:2px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0">' + hl(s.sku, query) + '</span>'
+        + '<span style="font-size:13px;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + hl(s.name, query) + '</span>'
+        + (s.cat ? '<span style="font-size:10px;background:#F0F9FF;color:#0369A1;padding:1px 6px;border-radius:4px;white-space:nowrap;flex-shrink:0">' + s.cat + '</span>' : '')
+        + '</div>';
     }).join('');
+    dd.innerHTML = rows
+      + (pool.length > 60 && !query ? '<div style="padding:8px;font-size:11px;color:#9CA3AF;text-align:center">Ketik untuk cari lebih spesifik</div>' : '');
   }
+
   positionSkuDropdown();
   dd.style.display = 'block';
-  setTimeout(function(){ document.addEventListener('click', closeSkuOnOutside, { once: true }); }, 0);
+
+  // close on outside click — use mousedown to fire before blur
+  const closer = function(e) {
+    const wrap = document.getElementById('skuPickerWrap');
+    if (!dd.contains(e.target) && (!wrap || !wrap.contains(e.target))) {
+      dd.style.display = 'none';
+      document.removeEventListener('mousedown', closer);
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', closer), 50);
+}
+
+function selectSku(sku, name) {
+  const dd = document.getElementById('skuDropdown');
+  if (dd) dd.style.display = 'none';
+  document.getElementById('modalSku').value = sku;
+  document.getElementById('skuSearchInput').value = sku + ' — ' + name;
+}
+
+function closeSkuOnOutside(e) {
+  const wrap = document.getElementById('skuPickerWrap');
+  const dd   = document.getElementById('skuDropdown');
+  if (dd && wrap && !wrap.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
+  }
 }
 
 function highlight(text, query) {
@@ -2499,11 +2562,6 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="btn btn-primary" onclick="submitAdditionalSku()">✅ Tambah ke Priority List</button>
     </div>
   </div>
-</div>
-
-<!-- SKU SEARCH DROPDOWN PORTAL (outside modal to avoid overflow clipping) -->
-<div id="skuDropdown" style="display:none;position:fixed;background:white;border:1.5px solid var(--ltblue);border-radius:10px;max-height:260px;overflow-y:auto;z-index:99990;box-shadow:0 8px 32px rgba(0,0,0,.18);-webkit-overflow-scrolling:touch">
-  <div id="skuDropdownList"></div>
 </div>
 
 <!-- PHOTO CHOICE SHEET -->
