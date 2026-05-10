@@ -1237,7 +1237,7 @@ function openAddModal(sku = '') {
     skuInput.value = '';
     skuHidden.value = '';
   }
-  document.getElementById('skuDropdown').style.display = 'none';
+  { const _dd = document.getElementById('skuDropdown'); if(_dd) _dd.style.display='none'; }
   selectedResult = null;
   document.getElementById('defectPanel').style.display = 'none';
   document.getElementById('btnGood').style.background = 'transparent';
@@ -1691,13 +1691,13 @@ function highlight(text, query) {
 function selectSku(sku, name) {
   document.getElementById('modalSku').value = sku;
   document.getElementById('skuSearchInput').value = sku + ' — ' + name;
-  document.getElementById('skuDropdown').style.display = 'none';
+  { const _dd = document.getElementById('skuDropdown'); if(_dd) _dd.style.display='none'; }
 }
 
 function closeSkuOnOutside(e) {
   const wrap = document.getElementById('skuPickerWrap');
   if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('skuDropdown').style.display = 'none';
+    { const _dd = document.getElementById('skuDropdown'); if(_dd) _dd.style.display='none'; }
   }
 }
 
