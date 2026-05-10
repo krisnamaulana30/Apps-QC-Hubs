@@ -228,9 +228,9 @@ tr:hover td { background: #F5F8FF; }
 /* ══ MODAL ══ */
 .modal-overlay { position: fixed; inset: 0; bottom: 62px; background: rgba(0,0,0,.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
 .modal-overlay.open { display: flex; }
-.modal { background: white; border-radius: 14px; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.2); display: flex; flex-direction: column; max-height: calc(100vh - 130px); }
+.modal { background: white; border-radius: 14px; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.2); display: flex; flex-direction: column; max-height: calc(100vh - 130px); overflow-y: auto; overflow-x: visible; }
 .modal-header { padding: 20px 24px 0; flex-shrink: 0; }
-.modal-body { padding: 0 24px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+.modal-body { padding: 0 24px; overflow: visible; flex: 1; }
 .modal-title { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
 .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
 .modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid var(--border); flex-shrink: 0; background: white; border-radius: 0 0 14px 14px; }
@@ -786,12 +786,19 @@ tr:hover td { background: #F5F8FF; }
       <div class="grid-2">
         <div class="form-group">
           <div class="form-label">SKU / Product *</div>
-          <!-- Searchable SKU picker -->
-          <div style="position:relative" id="skuPickerWrap">
-            <input type="text" class="form-input" id="skuSearchInput" placeholder="🔍 Ketik SKU atau nama produk..." autocomplete="off"
-              oninput="filterSkuDropdown(this.value)" onfocus="showSkuDropdown()" style="font-size:13px">
+          <div id="skuPickerWrap">
+            <input type="text" class="form-input" id="skuSearchInput" 
+              placeholder="🔍 Ketik nama produk atau SKU number..." 
+              autocomplete="off" spellcheck="false"
+              oninput="filterSkuDropdown(this.value)" 
+              onfocus="filterSkuDropdown(this.value)"
+              onblur="setTimeout(closeSkuDropdown,150)"
+              style="font-size:14px;width:100%;border-radius:8px 8px 0 0">
+            <!-- Results appear inline in normal document flow - no overlay, no clipping -->
+            <div id="skuDropdown" style="display:none;width:100%;background:white;border:2px solid #2E7EF5;border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;margin-bottom:4px">
+              <div id="skuDropdownList"></div>
+            </div>
           </div>
-          <!-- Hidden value holder -->
           <input type="hidden" id="modalSku">
         </div>
         <div class="form-group">
@@ -1237,7 +1244,7 @@ function openAddModal(sku = '') {
     skuInput.value = '';
     skuHidden.value = '';
   }
-  { const _dd = document.getElementById('skuDropdown'); if(_dd) _dd.style.display='none'; }
+  closeSkuDropdown();
   selectedResult = null;
   document.getElementById('defectPanel').style.display = 'none';
   document.getElementById('btnGood').style.background = 'transparent';
@@ -1546,140 +1553,135 @@ function loadSavedSettings() {
 
 // ── SEARCHABLE SKU PICKER ──
 function getSkuPool() {
-  // Use inspItems if loaded (already normalized), else prioritySkus, else static PRIORITY_SKUS
-  let base = [];
+  // Priority 1: inspItems (loaded from Sheets)
   if (inspItems && inspItems.length > 0) {
-    base = inspItems
-      .map(s => ({ sku:(s.sku||'').trim(), name:(s.name||'').trim(), cat:(s.cat||'').trim() }))
-      .filter(s => s.sku);
-  } else if (prioritySkus && prioritySkus.length > 0) {
-    base = prioritySkus.map(s => ({
-      sku:  (s.sku || s.sku_code || s['sku number'] || s['SKU Number'] || '').trim(),
-      name: (s.name || s.product_name || s['product name'] || s['Product Name'] || '').trim(),
-      cat:  (s.cat || s.category || s.l2_category || s['L2 Category'] || '').trim()
+    const base = inspItems.map(s => ({
+      sku: String(s.sku||'').trim(),
+      name: String(s.name||'').trim(),
+      cat: String(s.cat||'').trim()
     })).filter(s => s.sku);
-  } else {
-    base = PRIORITY_SKUS.map(s => ({ sku:s.sku||'', name:s.name||'', cat:s.cat||'' }));
+    const seen = new Set(base.map(s => s.sku));
+    const extra = (additionalSkus||[]).map(s => ({
+      sku: String(s.sku||'').trim(),
+      name: String(s.name||'').trim(),
+      cat: String(s.cat||'').trim()
+    })).filter(s => s.sku && !seen.has(s.sku));
+    return [...base, ...extra];
   }
-  const seen = new Set(base.map(s => s.sku));
-  const extra = additionalSkus
-    .map(s => ({ sku:(s.sku||'').trim(), name:(s.name||'').trim(), cat:(s.cat||'').trim() }))
-    .filter(s => s.sku && !seen.has(s.sku));
-  return [...base, ...extra];
+  // Priority 2: prioritySkus raw
+  if (prioritySkus && prioritySkus.length > 0) {
+    return prioritySkus.map(s => ({
+      sku: String(s.sku||s.sku_code||s['SKU Number']||s['sku number']||'').trim(),
+      name: String(s.name||s.product_name||s['Product Name']||s['product name']||'').trim(),
+      cat: String(s.cat||s.category||s['L2 Category']||'').trim()
+    })).filter(s => s.sku);
+  }
+  // Priority 3: additionalSkus only
+  if (additionalSkus && additionalSkus.length > 0) {
+    return additionalSkus.map(s => ({
+      sku: String(s.sku||'').trim(),
+      name: String(s.name||'').trim(),
+      cat: String(s.cat||'').trim()
+    })).filter(s => s.sku);
+  }
+  return [];
 }
 
-// ── SKU DROPDOWN: appended directly to body to avoid any stacking/overflow issues ──
-function getOrCreateSkuDropdown() {
-  let dd = document.getElementById('skuDropdown');
-  if (!dd) {
-    dd = document.createElement('div');
-    dd.id = 'skuDropdown';
-    dd.style.cssText = [
-      'display:none',
-      'position:fixed',
-      'background:white',
-      'border:2px solid #2E7EF5',
-      'border-radius:12px',
-      'max-height:280px',
-      'overflow-y:auto',
-      'z-index:2147483647',
-      'box-shadow:0 12px 40px rgba(0,0,0,0.25)',
-      '-webkit-overflow-scrolling:touch',
-      'overscroll-behavior:contain'
-    ].join(';');
-    document.body.appendChild(dd);
-  }
-  return dd;
-}
-
-function positionSkuDropdown() {
-  const input = document.getElementById('skuSearchInput');
-  const dd    = getOrCreateSkuDropdown();
-  if (!input) return;
-  const rect  = input.getBoundingClientRect();
-  const spaceBelow = window.innerHeight - rect.bottom - 8;
-  const spaceAbove = rect.top - 8;
-  const height = Math.min(280, Math.max(spaceBelow, spaceAbove));
-  dd.style.width  = rect.width + 'px';
-  dd.style.left   = rect.left + 'px';
-  if (spaceBelow >= 120 || spaceBelow >= spaceAbove) {
-    dd.style.top    = (rect.bottom + 4) + 'px';
-    dd.style.bottom = 'auto';
-    dd.style.maxHeight = Math.min(280, spaceBelow) + 'px';
-  } else {
-    dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-    dd.style.top    = 'auto';
-    dd.style.maxHeight = Math.min(280, spaceAbove) + 'px';
-  }
-}
 
 function showSkuDropdown() {
-  filterSkuDropdown(document.getElementById('skuSearchInput')?.value || '');
+  filterSkuDropdown(document.getElementById('skuSearchInput').value || '');
 }
 
 function filterSkuDropdown(q) {
-  const dd   = getOrCreateSkuDropdown();
-  const pool = getSkuPool();
-  const query = q.trim().toLowerCase();
+  const dd   = document.getElementById('skuDropdown');
+  const list = document.getElementById('skuDropdownList');
+  if (!dd || !list) return;
 
-  let filtered;
+  const pool  = getSkuPool();
+  const query = (q || '').trim().toLowerCase();
+
+  // If no SKUs loaded yet, show helpful message
+  if (pool.length === 0) {
+    list.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#6B7280;text-align:center">'
+      + '📋 Belum ada SKU — pergi ke <b>Settings → Load Priority SKUs</b> dulu'
+      + '</div>';
+    dd.style.display = 'block';
+    return;
+  }
+
+  let results;
   if (!query) {
-    filtered = pool.slice(0, 60);
+    results = pool.slice(0, 60);
   } else {
     const kws = query.split(/\s+/).filter(Boolean);
-    filtered = pool.filter(s => {
-      const hay = (s.sku + ' ' + s.name + ' ' + s.cat).toLowerCase();
-      return kws.every(k => hay.includes(k));
+    results = pool.filter(function(s) {
+      var hay = (s.sku + ' ' + s.name + ' ' + s.cat).toLowerCase();
+      return kws.every(function(k) { return hay.indexOf(k) !== -1; });
     });
   }
 
-  if (filtered.length === 0) {
-    dd.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#9CA3AF;text-align:center">Tidak ada SKU yang cocok</div>';
+  if (results.length === 0) {
+    list.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#6B7280;text-align:center">'
+      + 'Tidak ada SKU yang cocok untuk "<b>' + (q||'') + '</b>"</div>';
   } else {
-    const rows = filtered.map(s => {
-      const hl = (t, q2) => {
-        if (!q2) return t;
-        return t.replace(new RegExp('(' + q2.split(/\s+/).filter(Boolean).map(k => k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')', 'gi'),
-          '<mark style="background:#FEF08A;border-radius:2px;padding:0 1px">$1</mark>');
-      };
-      const safeOnclick = 'selectSku(' + JSON.stringify(s.sku) + ',' + JSON.stringify(s.name) + ')';
-      return '<div onclick="' + safeOnclick.replace(/"/g,'&quot;') + '" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid #F3F4F6;transition:background 0.1s" onmouseover="this.style.background=\'#EFF6FF\'" onmouseout="this.style.background=\'\'">'
-        + '<span style="font-family:monospace;font-size:11px;background:#EBF2FF;color:#1A4FC4;padding:2px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0">' + hl(s.sku, query) + '</span>'
-        + '<span style="font-size:13px;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + hl(s.name, query) + '</span>'
-        + (s.cat ? '<span style="font-size:10px;background:#F0F9FF;color:#0369A1;padding:1px 6px;border-radius:4px;white-space:nowrap;flex-shrink:0">' + s.cat + '</span>' : '')
+    list.innerHTML = results.map(function(s) {
+      var dispSku  = s.sku;
+      var dispName = s.name;
+      if (query) {
+        query.split(/\s+/).filter(Boolean).forEach(function(k) {
+          var re = new RegExp('(' + k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+          dispSku  = dispSku.replace(re,  '<b style="background:#FEF08A;border-radius:2px">$1</b>');
+          dispName = dispName.replace(re, '<b style="background:#FEF08A;border-radius:2px">$1</b>');
+        });
+      }
+      var safeSku  = s.sku.replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      var safeName = s.name.replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      return '<div class="sku-option"'
+        + ' data-sku="' + safeSku + '"'
+        + ' data-name="' + safeName + '"'
+        + ' onmousedown="onSKUSelect(event)"'
+        + ' style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;border-bottom:1px solid #F3F4F6"'
+        + ' onmouseover="this.style.background=\"#EFF6FF\"" onmouseout="this.style.background=\"\"">'
+        + '<span style="font-family:monospace;font-size:11px;background:#EBF2FF;color:#1A4FC4;padding:2px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0">' + dispSku + '</span>'
+        + '<span style="font-size:13px;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + dispName + '</span>'
+        + (s.cat ? '<span style="font-size:10px;background:#F0F9FF;color:#0369A1;padding:1px 6px;border-radius:4px;flex-shrink:0">' + s.cat + '</span>' : '')
         + '</div>';
     }).join('');
-    dd.innerHTML = rows
-      + (pool.length > 60 && !query ? '<div style="padding:8px;font-size:11px;color:#9CA3AF;text-align:center">Ketik untuk cari lebih spesifik</div>' : '');
   }
-
-  positionSkuDropdown();
   dd.style.display = 'block';
+}
 
-  // close on outside click — use mousedown to fire before blur
-  const closer = function(e) {
-    const wrap = document.getElementById('skuPickerWrap');
-    if (!dd.contains(e.target) && (!wrap || !wrap.contains(e.target))) {
-      dd.style.display = 'none';
-      document.removeEventListener('mousedown', closer);
-    }
-  };
-  setTimeout(() => document.addEventListener('mousedown', closer), 50);
+
+function onSKUSelect(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  var el = e.currentTarget;
+  var sku  = el.getAttribute('data-sku');
+  var name = el.getAttribute('data-name');
+  selectSku(sku, name);
 }
 
 function selectSku(sku, name) {
-  const dd = document.getElementById('skuDropdown');
+  var dd = document.getElementById('skuDropdown');
+  var hiddenInput = document.getElementById('modalSku');
+  var searchInput = document.getElementById('skuSearchInput');
+  if (hiddenInput) hiddenInput.value = sku;
+  if (searchInput) searchInput.value = sku + ' — ' + name;
   if (dd) dd.style.display = 'none';
-  document.getElementById('modalSku').value = sku;
-  document.getElementById('skuSearchInput').value = sku + ' — ' + name;
 }
 
+function closeSkuDropdown() {
+  var dd = document.getElementById('skuDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function getOrCreateSkuDropdown() { return document.getElementById('skuDropdown'); }
+function positionSkuDropdown() {}
+
 function closeSkuOnOutside(e) {
-  const wrap = document.getElementById('skuPickerWrap');
-  const dd   = document.getElementById('skuDropdown');
-  if (dd && wrap && !wrap.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none';
-  }
+  var wrap = document.getElementById('skuPickerWrap');
+  var dd   = document.getElementById('skuDropdown');
+  if (dd && wrap && !wrap.contains(e.target)) dd.style.display = 'none';
 }
 
 function highlight(text, query) {
@@ -1691,13 +1693,13 @@ function highlight(text, query) {
 function selectSku(sku, name) {
   document.getElementById('modalSku').value = sku;
   document.getElementById('skuSearchInput').value = sku + ' — ' + name;
-  { const _dd = document.getElementById('skuDropdown'); if(_dd) _dd.style.display='none'; }
+  closeSkuDropdown();
 }
 
 function closeSkuOnOutside(e) {
   const wrap = document.getElementById('skuPickerWrap');
   if (wrap && !wrap.contains(e.target)) {
-    { const _dd = document.getElementById('skuDropdown'); if(_dd) _dd.style.display='none'; }
+    closeSkuDropdown();
   }
 }
 
@@ -2306,23 +2308,35 @@ function getInspector() { return window.currentInspectorName || (document.getEle
 
 async function testConnection() {
   const url = getScriptUrl();
-  if (!url) { showToast('⚠️ Paste your Apps Script URL in Settings first', 'error'); return; }
-  showToast('🔗 Testing connection...', '');
+  if (!url) { showToast('⚠️ Paste Apps Script URL di Settings dulu', 'error'); return; }
+  if (!url.includes('script.google.com')) { 
+    showToast('⚠️ URL tidak valid — harus dari script.google.com', 'error'); return; 
+  }
+  const statusEl = document.getElementById('connectionStatus');
+  statusEl.textContent = '🔄 Menghubungkan...';
+  statusEl.style.background = '#EFF6FF';
+  statusEl.style.borderColor = '#BFDBFE';
+  statusEl.style.color = '#1E40AF';
   try {
-    const res = await fetch(url + '?action=getSummary');
+    const res  = await fetch(url + '?action=getSummary');
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    document.getElementById('connectionStatus').style.background = '#F0FDF4';
-    document.getElementById('connectionStatus').style.borderColor = '#BBF7D0';
-    document.getElementById('connectionStatus').style.color = '#166534';
-    document.getElementById('connectionStatus').textContent = '✅ Connected to Google Sheets successfully!';
-    showToast('✅ Connection successful!', 'success');
+    statusEl.style.background = '#F0FDF4';
+    statusEl.style.borderColor = '#BBF7D0';
+    statusEl.style.color = '#166534';
+    statusEl.textContent = '✅ Terhubung ke Google Sheets!';
+    showToast('✅ Connection berhasil!', 'success');
   } catch(e) {
-    document.getElementById('connectionStatus').style.background = '#FEF2F2';
-    document.getElementById('connectionStatus').style.borderColor = '#FECACA';
-    document.getElementById('connectionStatus').style.color = '#991B1B';
-    document.getElementById('connectionStatus').textContent = '❌ Connection failed: ' + e.message;
-    showToast('❌ Connection failed — check your URL', 'error');
+    statusEl.style.background = '#FEF2F2';
+    statusEl.style.borderColor = '#FECACA';
+    statusEl.style.color = '#991B1B';
+    if (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed')) {
+      statusEl.innerHTML = '❌ Gagal terhubung — Apps Script perlu di-deploy ulang.<br>'
+        + '<small>Buka Google Sheet → Extensions → Apps Script → Deploy → Manage deployments → Edit → New version → Deploy</small>';
+    } else {
+      statusEl.textContent = '❌ Error: ' + e.message;
+    }
+    showToast('❌ Connection gagal', 'error');
   }
 }
 
