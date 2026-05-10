@@ -516,17 +516,26 @@ tr:hover td { background: #F5F8FF; }
 
   <!-- Shift tabs -->
   <div class="shift-tabs">
-    <div class="shift-tab active" onclick="setShiftTab(1,this)">Shift 1 <span class="st-count">06:00–14:00 · 89 checked</span></div>
-    <div class="shift-tab" onclick="setShiftTab(2,this)">Shift 2 <span class="st-count">14:00–22:00 · 54 checked</span></div>
-    <div class="shift-tab" onclick="setShiftTab(3,this)">Shift 3 <span class="st-count">22:00–06:00 · 25 checked</span></div>
-    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-      <div class="search-bar"><input type="text" class="form-input" id="searchInput" placeholder="Search SKU or product..." oninput="filterItems()" style="width:220px;font-size:12px;padding:6px 10px 6px 32px"></div>
-      <select class="form-input form-select" id="statusFilter" onchange="filterItems()" style="width:120px;font-size:12px;padding:6px 10px">
-        <option value="">All Status</option>
-        <option value="pending">Pending</option>
-        <option value="good">Good</option>
-        <option value="bad">Bad</option>
-        <option value="unavailable">Stok N/A</option>
+    <div class="shift-tab active" id="stab1" onclick="setShiftTab(1,this)">
+      Shift 1 <span class="st-count">06:00–14:00</span>
+      <div style="font-size:10px;margin-top:2px" id="stab1-info">Target: 500 | Cek: 0 | Sisa: 500</div>
+    </div>
+    <div class="shift-tab" id="stab2" onclick="setShiftTab(2,this)">
+      Shift 2 <span class="st-count">14:00–22:00</span>
+      <div style="font-size:10px;margin-top:2px" id="stab2-info">Target: 500 | Cek: 0 | Sisa: 500</div>
+    </div>
+    <div class="shift-tab" id="stab3" onclick="setShiftTab(3,this)">
+      Shift 3 <span class="st-count">22:00–06:00</span>
+      <div style="font-size:10px;margin-top:2px" id="stab3-info">Target: 500 | Cek: 0 | Sisa: 500</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" class="form-input" id="searchInput" placeholder="🔍 Cari SKU / nama produk..." oninput="filterItems()" style="width:220px;font-size:12px;padding:6px 10px">
+      <select class="form-input form-select" id="statusFilter" onchange="filterItems()" style="width:130px;font-size:12px;padding:6px 10px">
+        <option value="">Semua Status</option>
+        <option value="pending">⏳ Pending</option>
+        <option value="good">✅ Good</option>
+        <option value="bad">❌ Bad</option>
+        <option value="unavailable">📭 Stok N/A</option>
       </select>
     </div>
   </div>
@@ -545,17 +554,17 @@ tr:hover td { background: #F5F8FF; }
       <p>Inspection results per hub & SKU — use filters to drill down</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select class="form-input form-select" id="dashHubFilter" onchange="renderDashboard()" style="min-width:220px;font-size:12px;padding:7px 10px">
-        <option value="">🏭 All Hubs</option>
+      <select class="form-input form-select" id="dashHubFilter" onchange="renderDashboard()" style="min-width:200px;font-size:12px;padding:7px 10px">
+        <option value="">🏭 Semua Hub</option>
       </select>
       <select class="form-input form-select" id="dashShiftFilter" onchange="renderDashboard()" style="width:130px;font-size:12px;padding:7px 10px">
-        <option value="">All Shifts</option>
+        <option value="">Semua Shift</option>
         <option value="1">Shift 1</option>
         <option value="2">Shift 2</option>
         <option value="3">Shift 3</option>
       </select>
       <select class="form-input form-select" id="dashSkuFilter" onchange="renderDashboard()" style="width:160px;font-size:12px;padding:7px 10px">
-        <option value="">All SKUs</option>
+        <option value="">Semua SKU</option>
       </select>
       <div style="display:flex;align-items:center;gap:4px;background:#F0F4FC;border:1px solid var(--border);border-radius:8px;padding:4px 8px">
         <span style="font-size:11px;color:var(--muted);white-space:nowrap">📅 Dari</span>
@@ -595,17 +604,38 @@ tr:hover td { background: #F5F8FF; }
 
   <div class="card" style="margin-bottom:14px">
     <div class="card-title" style="justify-content:space-between">
-      <span><span class="ct-icon">📦</span> SKU Performance & Inspection Records</span>
+      <span><span class="ct-icon">📦</span> SKU Performance</span>
       <span style="font-size:11px;color:var(--muted)">Bad Rate = total bad qty ÷ total sample qty</span>
     </div>
     <div class="tbl-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="min-width:700px">
-        <thead><tr><th>SKU</th><th>Product</th><th>Hub</th><th>Total Cek</th><th>Good</th><th>Bad</th><th>Bad Rate</th><th>Top Reason</th><th>Foto</th></tr></thead>
+      <table style="min-width:600px">
+        <thead><tr><th>SKU</th><th>Product</th><th>Hub</th><th>Total Cek</th><th>Good</th><th>Bad</th><th>Bad Rate</th><th>Top Reason</th></tr></thead>
         <tbody id="dashSkuBreakdown"></tbody>
       </table>
     </div>
   </div>
-  <tbody id="dashboardLog" style="display:none"></tbody>
+
+  <!-- Inspection Log with photos -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title" style="justify-content:space-between">
+      <span><span class="ct-icon">🕐</span> Inspection Log</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input type="text" id="logSearchInput" class="form-input" placeholder="🔍 Cari SKU / produk..." oninput="renderDashboard()" style="width:180px;font-size:12px;padding:5px 8px">
+        <select class="form-input form-select" id="logResultFilter" onchange="renderDashboard()" style="width:120px;font-size:12px;padding:5px 8px">
+          <option value="">Semua Hasil</option>
+          <option value="good">✅ Good</option>
+          <option value="bad">❌ Bad</option>
+          <option value="unavailable">📭 N/A</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="min-width:700px">
+        <thead><tr><th>Waktu</th><th>Hub</th><th>SKU</th><th>Produk</th><th>Shift</th><th>Bad Qty</th><th>Bad %</th><th>Reason</th><th>Foto (max 5)</th><th>Hasil</th></tr></thead>
+        <tbody id="dashboardLog"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -661,21 +691,32 @@ tr:hover td { background: #F5F8FF; }
     <h1>🕐 Inspection Log</h1>
     <p>Full audit trail — all inspections with shift, qty, results, and photo records</p>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    <input type="text" class="form-input" placeholder="Search SKU, product, reason..." style="flex:1;min-width:160px;font-size:13px">
-    <select class="form-input form-select" style="width:120px;font-size:12px">
-      <option>All Shifts</option><option>Shift 1</option><option>Shift 2</option><option>Shift 3</option>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <input type="text" class="form-input" id="histSearchInput" placeholder="🔍 Cari SKU, produk, reason..." oninput="renderHistory()" style="flex:1;min-width:160px;font-size:13px">
+    <select class="form-input form-select" id="histHubFilter" onchange="renderHistory()" style="min-width:180px;font-size:12px">
+      <option value="">🏭 Semua Hub</option>
     </select>
-    <select class="form-input form-select" style="width:120px;font-size:12px">
-      <option>All Status</option><option>Good</option><option>Bad</option>
+    <select class="form-input form-select" id="histShiftFilter" onchange="renderHistory()" style="width:120px;font-size:12px">
+      <option value="">Semua Shift</option>
+      <option value="1">Shift 1</option>
+      <option value="2">Shift 2</option>
+      <option value="3">Shift 3</option>
     </select>
-    <input type="date" class="form-input" style="width:145px;font-size:12px">
+    <select class="form-input form-select" id="histStatusFilter" onchange="renderHistory()" style="width:130px;font-size:12px">
+      <option value="">Semua Status</option>
+      <option value="good">✅ Good</option>
+      <option value="bad">❌ Bad</option>
+      <option value="unavailable">📭 N/A</option>
+    </select>
+    <input type="date" class="form-input" id="histDateFilter" onchange="renderHistory()" style="width:145px;font-size:12px">
+    <button class="btn btn-ghost btn-sm" onclick="clearHistFilters()">✕ Clear</button>
     <button class="btn btn-ghost btn-sm" onclick="exportToSheets()">📤 Export to Sheets</button>
   </div>
+  <div id="histCount" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="tbl-wrap" style="-webkit-overflow-scrolling:touch;overflow-x:auto">
     <table style="min-width:700px">
-      <thead><tr><th>Timestamp</th><th>SKU</th><th>Product</th><th>Shift</th><th>Stock</th><th>Sample</th><th>Bad</th><th>% Bad</th><th>Reasons</th><th>Photos</th><th>Result</th></tr></thead>
+      <thead><tr><th>Timestamp</th><th>Hub</th><th>SKU</th><th>Product</th><th>Shift</th><th>Stock</th><th>Sample</th><th>Bad</th><th>% Bad</th><th>Reasons</th><th>Photos</th><th>Result</th></tr></thead>
       <tbody id="historyTable"></tbody>
     </table>
     </div>
@@ -697,8 +738,24 @@ tr:hover td { background: #F5F8FF; }
     <div class="stat-card"><div class="stat-label">Total Hub Aktif</div><div class="stat-val blue">51</div><div class="stat-sub">50 active · 1 inactive (JTB)</div></div>
   </div>
   <div class="card">
-    <div class="card-title"><span class="ct-icon">📍</span> All Hub Mapping — L3M Jan–Mar 2026</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Hub</th><th>Complaint %</th><th>Zone</th><th>Scenario</th></tr></thead><tbody id="hubTable"></tbody></table></div>
+    <div class="card-title" style="justify-content:space-between">
+      <span><span class="ct-icon">📍</span> All Hub Mapping — L3M Jan–Mar 2026</span>
+      <div style="display:flex;gap:8px">
+        <input type="text" class="form-input" id="hubSearchFilter" placeholder="🔍 Cari nama hub..." oninput="renderHubs()" style="width:200px;font-size:12px;padding:5px 10px">
+        <select class="form-input form-select" id="hubZoneFilter" onchange="renderHubs()" style="width:130px;font-size:12px;padding:5px 10px">
+          <option value="">Semua Zone</option>
+          <option value="Red">🔴 Red Zone</option>
+          <option value="Yellow">🟡 Yellow Zone</option>
+          <option value="Green">🟢 Green Zone</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap" style="overflow-x:auto">
+      <table style="min-width:500px">
+        <thead><tr><th>Hub</th><th>Complaint %</th><th>Zone</th><th>Scenario</th></tr></thead>
+        <tbody id="hubTable"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -721,6 +778,7 @@ tr:hover td { background: #F5F8FF; }
         <button class="btn btn-ghost" style="flex:1;justify-content:center;min-width:120px" onclick="testConnection()">🔗 Test Connection</button>
         <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:120px" onclick="loadPriorityFromSheets()">📥 Load Priority SKUs</button>
         <button class="btn btn-ghost" style="flex:1;justify-content:center;min-width:120px" onclick="loadHubZonesFromSheets()">🏭 Load Hub Zones</button>
+        <button class="btn btn-ghost btn-sm" style="color:#DC2626;border-color:#DC2626" onclick="clearAllData()">🗑 Reset Data</button>
       </div>
       <div id="connectionStatus" style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;padding:10px;font-size:12px;color:#92400E">
         ⚠️ Belum terhubung — paste Apps Script URL di atas lalu test connection
@@ -1052,7 +1110,7 @@ function setSideActive(el) {
 // ══════════════════════════════════════════
 // INSPECTION LIST
 // ══════════════════════════════════════════
-function renderInspectionList(filter = '') {
+function renderInspectionList(filter = '', statusOverride = '') {
   const container = document.getElementById('inspectionList');
 
   // Empty state — prompt to load from Sheets
@@ -1066,10 +1124,11 @@ function renderInspectionList(filter = '') {
     return;
   }
 
-  const statusF = document.getElementById('statusFilter')?.value || '';
+  const statusF = statusOverride || document.getElementById('statusFilter')?.value || '';
   const items = inspItems.filter(item => {
     const status = getStatus(item, currentShiftTab);
-    const matchText = !filter || item.sku.toLowerCase().includes(filter.toLowerCase()) || item.name.toLowerCase().includes(filter.toLowerCase());
+    const searchQ = filter.trim().toLowerCase();
+    const matchText = !searchQ || item.sku.toLowerCase().includes(searchQ) || item.name.toLowerCase().includes(searchQ);
     const matchStatus = !statusF || status === statusF;
     return matchText && matchStatus;
   });
@@ -1173,6 +1232,7 @@ function markItem(id, result, e) {
     updateCounts();
     renderInspectionList();
     showToast('📭 Dicatat sebagai Stok Tidak Tersedia', '');
+    saveDataToLocal();
     return;
   }
 
@@ -1209,15 +1269,16 @@ function setShiftTab(n, el) {
 }
 
 function filterItems() {
-  const q = document.getElementById('searchInput').value;
-  renderInspectionList(q);
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  const s = document.getElementById('statusFilter')?.value || '';
+  renderInspectionList(q, s);
 }
 
 function updateCounts() {
-  const total = inspItems.length || 500;
+  const total   = inspItems.length || 500;
   const checked = inspectionLog.length;
-  const bad = inspectionLog.filter(r => r.result === 'bad').length;
-  const na  = inspectionLog.filter(r => r.result === 'unavailable').length;
+  const bad     = inspectionLog.filter(r => r.result === 'bad').length;
+  const na      = inspectionLog.filter(r => r.result === 'unavailable').length;
   document.getElementById('checkedCount').textContent = checked;
   document.getElementById('badCount').textContent = bad;
   document.getElementById('pendingCount').textContent = Math.max(0, total - checked);
@@ -1226,6 +1287,14 @@ function updateCounts() {
   document.getElementById('sideProgress').style.width = Math.min(pct, 100) + '%';
   const naEl = document.getElementById('naCount');
   if (naEl) naEl.textContent = na;
+  // Update shift tab info
+  [1,2,3].forEach(s => {
+    const el = document.getElementById('stab'+s+'-info');
+    if (!el) return;
+    const shiftChecked = inspectionLog.filter(r => r.shift === s).length;
+    const shiftPending = Math.max(0, total - shiftChecked);
+    el.textContent = 'Target: ' + total + ' | Cek: ' + shiftChecked + ' | Sisa: ' + shiftPending;
+  });
 }
 
 // ══════════════════════════════════════════
@@ -1523,6 +1592,7 @@ function submitInspection() {
   syncSingleRecord(entry).then(() => {
     showToast('✅ Inspeksi tersimpan' + (getScriptUrl() ? ' & synced ke Sheets' : ' (lokal)'), 'success');
   });
+  saveDataToLocal();
 }
 
 function fillProductName() {}
@@ -1543,12 +1613,71 @@ function saveSheetLinks() {
 function saveScriptUrl(val) {
   if (val) localStorage.setItem('scriptUrl', val);
 }
+function clearAllData() {
+  if (!confirm('Reset semua data inspeksi? Data yang belum di-sync ke Sheets akan hilang permanen.')) return;
+  ['aqc_inspLog','aqc_inspItems','aqc_priSkus','aqc_addSkus','aqc_hub','aqc_inspector'].forEach(k => localStorage.removeItem(k));
+  inspectionLog = []; inspItems = []; prioritySkus = []; additionalSkus = [];
+  selectedHub = null; window.currentInspectorName = null;
+  const hubLabel = document.getElementById('hubBadgeLabel');
+  if (hubLabel) hubLabel.textContent = 'Select Hub';
+  const badge = document.getElementById('inspectorBadge');
+  if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
+  renderInspectionList(); renderHistory(); updateCounts(); renderPriority();
+  showToast('🗑 Semua data direset', '');
+  setTimeout(() => openHubSelector(), 500);
+}
+
 function loadSavedSettings() {
   ['sheetLinkMain','sheetLinkPriority','sheetLinkResults','scriptUrl'].forEach(id => {
     const saved = localStorage.getItem(id);
     const el = document.getElementById(id);
     if (saved && el) el.value = saved;
   });
+}
+
+// ── DATA PERSISTENCE ──
+function saveDataToLocal() {
+  try {
+    localStorage.setItem('aqc_inspLog',   JSON.stringify(inspectionLog.slice(0, 2000)));
+    localStorage.setItem('aqc_inspItems', JSON.stringify(inspItems));
+    localStorage.setItem('aqc_priSkus',   JSON.stringify(prioritySkus));
+    localStorage.setItem('aqc_addSkus',   JSON.stringify(additionalSkus));
+    if (selectedHub) localStorage.setItem('aqc_hub', JSON.stringify(selectedHub));
+    if (window.currentInspectorName) localStorage.setItem('aqc_inspector', window.currentInspectorName);
+  } catch(e) { /* storage full - silent fail */ }
+}
+
+function loadDataFromLocal() {
+  try {
+    const log = localStorage.getItem('aqc_inspLog');
+    if (log) { inspectionLog = JSON.parse(log); }
+
+    const items = localStorage.getItem('aqc_inspItems');
+    if (items) {
+      inspItems = JSON.parse(items);
+      prioritySkus = inspItems;
+    }
+
+    const addSkus = localStorage.getItem('aqc_addSkus');
+    if (addSkus) additionalSkus = JSON.parse(addSkus);
+
+    const hub = localStorage.getItem('aqc_hub');
+    if (hub) {
+      selectedHub = JSON.parse(hub);
+      const parts = selectedHub.hub.split(' - ');
+      const code = parts[0], name = parts.slice(1).join(' - ');
+      const zoneEmoji = selectedHub.zone === 'Red' ? '🔴' : selectedHub.zone === 'Yellow' ? '🟡' : '🟢';
+      const hubLabel = document.getElementById('hubBadgeLabel');
+      if (hubLabel) hubLabel.textContent = code + ' – ' + name + ' ' + zoneEmoji;
+    }
+
+    const inspector = localStorage.getItem('aqc_inspector');
+    if (inspector) {
+      window.currentInspectorName = inspector;
+      const badge = document.getElementById('inspectorBadge');
+      if (badge) { badge.textContent = '👤 ' + inspector; badge.style.display = ''; }
+    }
+  } catch(e) { /* corrupted data - silent fail */ }
 }
 
 // ── SEARCHABLE SKU PICKER ──
@@ -1794,15 +1923,29 @@ function removeAdditionalSku(sku) {
 // ══════════════════════════════════════════
 function renderHubs() {
   const tbody = document.getElementById('hubTable');
-  tbody.innerHTML = HUB_DATA.map(h => {
-    const zoneClass = h.zone === 'Red' ? 'red-zone' : h.zone === 'Yellow' ? 'yellow-zone' : 'green-zone';
+  if (!tbody) return;
+  const searchQ = (document.getElementById('hubSearchFilter')?.value || '').toLowerCase();
+  const zoneF   = document.getElementById('hubZoneFilter')?.value || '';
+  const data = HUB_DATA.filter(h => {
+    const matchSearch = !searchQ || h.hub.toLowerCase().includes(searchQ);
+    const matchZone   = !zoneF   || h.zone === zoneF;
+    return matchSearch && matchZone;
+  });
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Tidak ada hub yang cocok</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(h => {
     const zoneEmoji = h.zone === 'Red' ? '🔴' : h.zone === 'Yellow' ? '🟡' : '🟢';
-    return `<tr>
-      <td style="font-weight:600;font-size:12.5px">${h.hub}</td>
-      <td style="font-family:'DM Mono',monospace;font-weight:700;color:${h.zone==='Red'?'#DC2626':h.zone==='Yellow'?'#D97706':'#059669'}">${h.pct}</td>
-      <td><span class="badge ${zoneClass}" style="font-size:10px">${zoneEmoji} ${h.zone} Zone</span></td>
-      <td><span class="badge blue" style="font-size:10px">Scen ${h.scen}</span></td>
-    </tr>`;
+    const zoneColor = h.zone === 'Red' ? '#FEF2F2' : h.zone === 'Yellow' ? '#FFFBEB' : '#F0FDF4';
+    const zoneText  = h.zone === 'Red' ? '#991B1B' : h.zone === 'Yellow' ? '#92400E' : '#065F46';
+    const zoneBg    = h.zone === 'Red' ? '#FEE2E2' : h.zone === 'Yellow' ? '#FEF3C7' : '#D1FAE5';
+    return '<tr style="background:' + zoneColor + '">'
+      + '<td style="font-weight:600;font-size:13px">' + h.hub + '</td>'
+      + '<td style="font-family:DM Mono,monospace;font-weight:700;color:' + (h.zone==='Red'?'#DC2626':h.zone==='Yellow'?'#D97706':'#059669') + '">' + h.pct + '</td>'
+      + '<td><span style="background:' + zoneBg + ';color:' + zoneText + ';padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">' + zoneEmoji + ' ' + h.zone + ' Zone</span></td>'
+      + '<td><span style="background:#EBF2FF;color:var(--blue);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">Scen ' + h.scen + '</span></td>'
+      + '</tr>';
   }).join('');
 }
 
@@ -2204,35 +2347,70 @@ function renderDashboard() {
       skuTbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No inspection records match this filter</td></tr>';
     } else {
       skuTbody.innerHTML = skuRows.map(s => {
-        // Bad rate = total bad qty / total sample qty (real %)
         const badRate = s.totalSample > 0
           ? (s.totalBadQty/s.totalSample*100).toFixed(1)+'%'
           : (s.bad > 0 ? '100.0%' : '0.0%');
         const topReason = Object.entries(s.reasons.reduce((acc,r)=>{acc[r]=(acc[r]||0)+1;return acc},{})).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
         const resultColor = s.bad > 0 ? '#FEF2F2' : '#F0FDF4';
-        // Latest photo from records
-        const latestPhoto = s.records.flatMap(r=>r.photoUrls||[]).find(p=>p);
-        const photoCell = latestPhoto
-          ? `<a href="${latestPhoto}" target="_blank" style="font-size:11px;color:var(--blue);text-decoration:none">📷 Lihat</a>`
-          : '—';
-        return `<tr style="background:${resultColor}">
-          <td><span style="font-family:'DM Mono',monospace;font-size:10px;background:#EBF2FF;padding:2px 6px;border-radius:4px;color:var(--blue)">${s.sku}</span></td>
-          <td style="font-size:12px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</td>
-          <td style="font-size:11px;color:var(--muted);white-space:nowrap">${[...s.hubs].join(', ')}</td>
-          <td style="text-align:center;font-weight:700">${s.total}</td>
-          <td style="text-align:center;color:var(--pass);font-weight:600">${s.good}</td>
-          <td style="text-align:center;color:${s.bad?'var(--fail)':'var(--muted)'};font-weight:600">${s.bad}</td>
-          <td style="text-align:center;color:${parseFloat(badRate)>10?'var(--fail)':parseFloat(badRate)>5?'var(--warn)':'var(--muted)'};font-weight:700">${badRate}</td>
-          <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${topReason}</td>
-          <td style="text-align:center">${photoCell}</td>
-        </tr>`;
+        return '<tr style="background:' + resultColor + '">'
+          + '<td><span style="font-family:DM Mono,monospace;font-size:10px;background:#EBF2FF;padding:2px 6px;border-radius:4px;color:var(--blue)">' + s.sku + '</span></td>'
+          + '<td style="font-size:12px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + s.name + '</td>'
+          + '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + [...s.hubs].join(', ') + '</td>'
+          + '<td style="text-align:center;font-weight:700">' + s.total + '</td>'
+          + '<td style="text-align:center;color:var(--pass);font-weight:600">' + s.good + '</td>'
+          + '<td style="text-align:center;color:' + (s.bad?'var(--fail)':'var(--muted)') + ';font-weight:600">' + s.bad + '</td>'
+          + '<td style="text-align:center;font-weight:700;color:' + (parseFloat(badRate)>10?'var(--fail)':parseFloat(badRate)>5?'var(--warn)':'var(--muted)') + '">' + badRate + '</td>'
+          + '<td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + topReason + '</td>'
+          + '</tr>';
       }).join('');
     }
   }
 
-  // Remove separate inspection log (merged above)
-  const logTbody = document.getElementById('dashboardLog');
-  if (logTbody) logTbody.innerHTML = '';
+  // Inspection Log with filters + max 5 photos
+  const logSearch = (document.getElementById('logSearchInput')?.value || '').toLowerCase();
+  const logResult = document.getElementById('logResultFilter')?.value || '';
+  const logTbody  = document.getElementById('dashboardLog');
+  if (logTbody) {
+    const logFiltered = filtered.filter(r => {
+      const matchSearch = !logSearch || (r.sku+' '+r.name).toLowerCase().includes(logSearch);
+      const matchResult = !logResult || r.result === logResult;
+      return matchSearch && matchResult;
+    });
+    if (logFiltered.length === 0) {
+      logTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
+    } else {
+      logTbody.innerHTML = logFiltered.map(r => {
+        const badPct = r.sample ? ((r.badQty||0)/r.sample*100).toFixed(1)+'%' : '—';
+        const rb = r.result==='good' ? '<span class="badge pass">✓ Good</span>'
+                 : r.result==='bad'  ? '<span class="badge fail">✗ Bad</span>'
+                 : '<span class="badge" style="background:#F3F4F6;color:#6B7280">📭 N/A</span>';
+        const photos = (r.photoUrls||[]).slice(0,5);
+        const photoHtml = photos.length
+          ? photos.map((p,i) => {
+              if (p && p.startsWith('data:image')) {
+                return '<img src="' + p + '" onclick="showPhotoModal(event,this)" style="width:30px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #E5E7EB;margin-right:2px" title="Tap untuk lihat">';
+              } else if (p && p.startsWith('http')) {
+                return '<a href="' + p + '" target="_blank" style="font-size:11px;color:var(--blue);margin-right:4px">📷' + (i+1) + '</a>';
+              }
+              return '';
+            }).filter(Boolean).join('') || '—'
+          : '—';
+        const hubCode = (r.hub||'').split(' - ')[0];
+        return '<tr>'
+          + '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + r.ts + '</td>'
+          + '<td style="white-space:nowrap"><span style="font-size:10px;background:#EBF2FF;padding:2px 5px;border-radius:4px;color:var(--blue)">' + hubCode + '</span></td>'
+          + '<td style="white-space:nowrap"><span style="font-family:DM Mono,monospace;font-size:10px;background:#F0F5FF;padding:2px 5px;border-radius:4px;color:var(--blue)">' + r.sku + '</span></td>'
+          + '<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.name + '</td>'
+          + '<td style="text-align:center">S' + r.shift + '</td>'
+          + '<td style="text-align:center;color:var(--fail);font-weight:600">' + (r.badQty||'—') + '</td>'
+          + '<td style="text-align:center;color:' + (r.result==='bad'?'var(--fail)':'var(--muted)') + '">' + badPct + '</td>'
+          + '<td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ((r.reasons||[]).join(', ')||'—') + '</td>'
+          + '<td style="white-space:nowrap">' + photoHtml + '</td>'
+          + '<td>' + rb + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+  }
 }
 
 function quickFilterHub(hubName) {
@@ -2243,38 +2421,72 @@ function quickFilterHub(hubName) {
 
 function renderHistory() {
   const tbody = document.getElementById('historyTable');
-  if (tbody) tbody.innerHTML = '';
-  inspectionLog.forEach(r => {
-    const badPct = r.sample ? ((r.badQty / r.sample)*100).toFixed(1)+'%' : '—';
-    const resultBadge = r.result === 'good' ? '<span class="badge pass">✓ Good</span>' :
-                        r.result === 'bad'  ? '<span class="badge fail">✗ Bad</span>' :
-                        '<span class="badge" style="background:#F3F4F6;color:#6B7280">📭 N/A</span>';
-    const photos = r.photoUrls || [];
+  if (!tbody) return;
+  const searchQ  = (document.getElementById('histSearchInput')?.value  || '').toLowerCase();
+  const hubF     = document.getElementById('histHubFilter')?.value     || '';
+  const shiftF   = document.getElementById('histShiftFilter')?.value   || '';
+  const statusF  = document.getElementById('histStatusFilter')?.value  || '';
+  const dateF    = document.getElementById('histDateFilter')?.value    || '';
+  const hubSel = document.getElementById('histHubFilter');
+  if (hubSel) {
+    const hubs = [...new Set(inspectionLog.map(r => r.hub).filter(Boolean))].sort();
+    hubs.forEach(h => {
+      if (![...hubSel.options].find(o => o.value === h)) hubSel.appendChild(new Option('🏭 '+h, h));
+    });
+  }
+  const filtered = inspectionLog.filter(r => {
+    const matchSearch = !searchQ || (r.sku+' '+r.name+' '+(r.reasons||[]).join(' ')).toLowerCase().includes(searchQ);
+    const matchHub    = !hubF    || r.hub === hubF;
+    const matchShift  = !shiftF  || String(r.shift) === shiftF;
+    const matchStatus = !statusF || r.result === statusF;
+    const matchDate   = !dateF   || tsToDate(r.ts) === dateF;
+    return matchSearch && matchHub && matchShift && matchStatus && matchDate;
+  });
+  const countEl = document.getElementById('histCount');
+  if (countEl) countEl.textContent = filtered.length + ' record' + (filtered.length !== 1 ? 's' : '');
+  tbody.innerHTML = '';
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px">Tidak ada data yang cocok</td></tr>';
+    return;
+  }
+  filtered.forEach(r => {
+    const badPct = r.sample ? ((r.badQty/r.sample)*100).toFixed(1)+'%' : '—';
+    const rb = r.result==='good' ? '<span class="badge pass">✓ Good</span>'
+             : r.result==='bad'  ? '<span class="badge fail">✗ Bad</span>'
+             : '<span class="badge" style="background:#F3F4F6;color:#6B7280">📭 N/A</span>';
+    const photos = (r.photoUrls||[]).slice(0,5);
     let photoCell = '—';
     if (photos.length > 0) {
-      photoCell = photos.map((p, i) => {
-        if (p && p.startsWith('data:image')) {
-          return `<img src="${p}" onclick="showPhotoModal(event,'${r.sku}')" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--border);margin-right:2px" title="Klik untuk lihat foto">`;
-        } else if (p && p.startsWith('http')) {
-          return `<a href="${p}" target="_blank" style="font-size:11px;color:var(--blue);margin-right:4px">📷${i+1}</a>`;
-        }
+      photoCell = photos.map((p,i) => {
+        if (p && p.startsWith('data:image')) return '<img src="'+p+'" onclick="showPhotoModal(event,this)" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--border);margin-right:2px">';
+        if (p && p.startsWith('http')) return '<a href="'+p+'" target="_blank" style="font-size:11px;color:var(--blue);margin-right:4px">📷'+(i+1)+'</a>';
         return '';
       }).filter(Boolean).join('') || '—';
     }
-    if (tbody) tbody.innerHTML += `<tr>
-      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${r.ts}</td>
-      <td style="white-space:nowrap"><span style="font-family:'DM Mono',monospace;font-size:10px;background:#EBF2FF;padding:2px 6px;border-radius:4px;color:var(--blue)">${r.sku}</span></td>
-      <td style="font-weight:500;font-size:12px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.name}</td>
-      <td style="text-align:center;white-space:nowrap">S${r.shift}</td>
-      <td style="text-align:center;white-space:nowrap">${r.stock||'—'}</td>
-      <td style="text-align:center;white-space:nowrap">${r.sample||'—'}</td>
-      <td style="text-align:center;color:var(--fail);font-weight:600;white-space:nowrap">${r.badQty||'—'}</td>
-      <td style="text-align:center;white-space:nowrap;color:${r.result==='bad'?'var(--fail)':'var(--muted)'}">${badPct}</td>
-      <td style="font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(r.reasons||[]).join(', ')||'—'}</td>
-      <td style="white-space:nowrap">${photoCell}</td>
-      <td style="white-space:nowrap">${resultBadge}</td>
-    </tr>`;
+    const hubCode = (r.hub||'').split(' - ')[0];
+    tbody.innerHTML += '<tr>'
+      +'<td style="font-size:11px;color:var(--muted);white-space:nowrap">'+(r.ts||'')+'</td>'
+      +'<td style="white-space:nowrap"><span style="font-size:10px;background:#EBF2FF;padding:2px 5px;border-radius:4px;color:var(--blue)">'+hubCode+'</span></td>'
+      +'<td style="white-space:nowrap"><span style="font-family:DM Mono,monospace;font-size:10px;background:#F0F5FF;padding:2px 5px;border-radius:4px;color:var(--blue)">'+(r.sku||'')+'</span></td>'
+      +'<td style="font-size:12px;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(r.name||'')+'</td>'
+      +'<td style="text-align:center">S'+r.shift+'</td>'
+      +'<td style="text-align:center">'+(r.stock||'—')+'</td>'
+      +'<td style="text-align:center">'+(r.sample||'—')+'</td>'
+      +'<td style="text-align:center;color:var(--fail);font-weight:600">'+(r.badQty||'—')+'</td>'
+      +'<td style="text-align:center;color:'+(r.result==='bad'?'var(--fail)':'var(--muted)')+'">'+badPct+'</td>'
+      +'<td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((r.reasons||[]).join(', ')||'—')+'</td>'
+      +'<td style="white-space:nowrap">'+photoCell+'</td>'
+      +'<td>'+rb+'</td>'
+      +'</tr>';
   });
+}
+
+function clearHistFilters() {
+  ['histSearchInput','histHubFilter','histShiftFilter','histStatusFilter','histDateFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderHistory();
 }
 
 function showPhotoModal(e, sku) {
@@ -2363,6 +2575,7 @@ async function loadPriorityFromSheets() {
     priorityLastLoaded = new Date().toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
     renderInspectionList();
     renderPriority();
+    saveDataToLocal();
     showToast('✅ Loaded ' + mapped.length + ' SKUs from Google Sheets!', 'success');
   } catch(e) {
     showToast('❌ Failed to load: ' + e.message, 'error');
@@ -2476,15 +2689,23 @@ function regeneratePriority() {
 // INIT
 // ══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
+  // Load persisted data FIRST
+  loadDataFromLocal();
+
   renderInspectionList();
   renderHistory();
   updateCounts();
   populateDashboardFilters();
   loadSavedSettings();
   renderHubs();
+  renderPriority();
   document.getElementById('badQtyInput')?.addEventListener('input', updateBadPct);
-  // Auto-open hub selector on first load
-  setTimeout(() => openHubSelector(), 400);
+
+  // Only open hub selector on first load if no hub saved
+  const hasSavedHub = !!localStorage.getItem('aqc_hub');
+  if (!hasSavedHub) {
+    setTimeout(() => openHubSelector(), 400);
+  }
 
   // Bottom nav active state sync
   function syncBottomNav(pageId) {
@@ -2658,6 +2879,8 @@ window.addEventListener('appinstalled', () => {
   showToast('🚀 AstroQC sudah terinstall di home screen!', 'success');
 });
 </script>
+
+
 
 </body>
 </html>
