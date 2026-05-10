@@ -858,12 +858,13 @@ tr:hover td { background: #F5F8FF; }
       <div class="form-group">
         <div class="form-label">📷 Photo Evidence (optional, max 4)</div>
         <div class="photo-grid">
-          <div class="photo-slot" id="ps0" onclick="pickPhoto(0)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 1</span></div>
-          <div class="photo-slot" id="ps1" onclick="pickPhoto(1)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 2</span></div>
-          <div class="photo-slot" id="ps2" onclick="pickPhoto(2)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 3</span></div>
-          <div class="photo-slot" id="ps3" onclick="pickPhoto(3)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 4</span></div>
+          <div class="photo-slot" id="ps0" onclick="showPhotoChoice(0)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 1</span></div>
+          <div class="photo-slot" id="ps1" onclick="showPhotoChoice(1)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 2</span></div>
+          <div class="photo-slot" id="ps2" onclick="showPhotoChoice(2)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 3</span></div>
+          <div class="photo-slot" id="ps3" onclick="showPhotoChoice(3)"><div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo 4</span></div>
         </div>
-        <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+        <input type="file" id="photoInputCamera"  accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
+        <input type="file" id="photoInputGallery" accept="image/*" style="display:none" onchange="handlePhoto(event)">
       </div>
 
       <div class="form-group">
@@ -1432,7 +1433,26 @@ function getSelectedReasons() {
   return Array.from(chips).map(c => c.dataset.reason || c.textContent.trim());
 }
 
-function pickPhoto(idx) { currentPhotoSlot = idx; document.getElementById('photoInput').click(); }
+function showPhotoChoice(idx) {
+  currentPhotoSlot = idx;
+  const sheet = document.getElementById('photoChoiceSheet');
+  sheet.style.display = 'flex';
+}
+function closePhotoChoice() {
+  document.getElementById('photoChoiceSheet').style.display = 'none';
+}
+function useCamera() {
+  closePhotoChoice();
+  document.getElementById('photoInputCamera').value = '';
+  document.getElementById('photoInputCamera').click();
+}
+function useGallery() {
+  closePhotoChoice();
+  document.getElementById('photoInputGallery').value = '';
+  document.getElementById('photoInputGallery').click();
+}
+// Legacy fallback
+function pickPhoto(idx) { showPhotoChoice(idx); }
 function handlePhoto(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -1529,12 +1549,27 @@ function loadSavedSettings() {
 
 // ── SEARCHABLE SKU PICKER ──
 function getSkuPool() {
-  // Use loaded prioritySkus + additionalSkus if available
-  const base = (prioritySkus && prioritySkus.length > 0)
-    ? prioritySkus.map(s => ({ sku: s.sku_code || s.sku || s.id || '', name: s.product_name || s.name || '' }))
-    : PRIORITY_SKUS.map(s => ({ sku: s.sku, name: s.name }));
-  const extra = additionalSkus.map(s => ({ sku: s.sku, name: s.name }));
-  return [...base, ...extra];
+  // Primary: inspItems (already normalized)
+  if (inspItems && inspItems.length > 0) {
+    const base = inspItems.map(s => ({ sku: s.sku || '', name: s.name || '', cat: s.cat || '' })).filter(s => s.sku);
+    const extra = additionalSkus.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
+    const seen = new Set(base.map(s => s.sku));
+    return [...base, ...extra.filter(s => !seen.has(s.sku))];
+  }
+  if (prioritySkus && prioritySkus.length > 0) {
+    const base = prioritySkus.map(s => ({
+      sku:  s.sku  || s.sku_code  || s['sku number']  || s['SKU Number']  || '',
+      name: s.name || s.product_name || s['product name'] || s['Product Name'] || '',
+      cat:  s.cat  || s.category  || s.l2_category || ''
+    })).filter(s => s.sku);
+    const extra = additionalSkus.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
+    const seen = new Set(base.map(s => s.sku));
+    return [...base, ...extra.filter(s => !seen.has(s.sku))];
+  }
+  const base = PRIORITY_SKUS.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
+  const extra = additionalSkus.map(s => ({ sku: s.sku, name: s.name, cat: s.cat || '' }));
+  const seen = new Set(base.map(s => s.sku));
+  return [...base, ...extra.filter(s => !seen.has(s.sku))];
 }
 
 function showSkuDropdown() {
@@ -1543,45 +1578,49 @@ function showSkuDropdown() {
 
 function filterSkuDropdown(q) {
   const list = document.getElementById('skuDropdownList');
-  const dd = document.getElementById('skuDropdown');
+  const dd   = document.getElementById('skuDropdown');
   const pool = getSkuPool();
   const query = q.trim().toLowerCase();
-  const filtered = query
-    ? pool.filter(s => s.sku.toLowerCase().includes(query) || s.name.toLowerCase().includes(query))
-    : pool;
-
+  let filtered;
+  if (!query) {
+    filtered = pool.slice(0, 50);
+  } else {
+    const keywords = query.split(/\s+/).filter(Boolean);
+    filtered = pool.filter(s => {
+      const haystack = (s.sku + ' ' + s.name + ' ' + (s.cat||'')).toLowerCase();
+      return keywords.every(kw => haystack.includes(kw));
+    });
+  }
   if (filtered.length === 0) {
-    list.innerHTML = `<div style="padding:12px 14px;font-size:12px;color:var(--muted)">Tidak ada SKU yang cocok</div>`;
+    list.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:var(--muted)">Tidak ada SKU yang cocok untuk "' + q + '"</div>';
   } else {
     list.innerHTML = filtered.map(s => {
-      const skuHl = highlight(s.sku, query);
+      const skuHl  = highlight(s.sku,  query);
       const nameHl = highlight(s.name, query);
-      return `<div class="sku-option" onclick="selectSku('${s.sku}','${s.name.replace(/'/g,"\\'")}')">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;background:#EBF2FF;color:var(--blue);padding:2px 6px;border-radius:4px;margin-right:8px;white-space:nowrap">${skuHl}</span>
-        <span style="font-size:13px;color:var(--text)">${nameHl}</span>
-      </div>`;
+      const catBadge = s.cat ? '<span style="font-size:10px;background:#F0F5FF;color:var(--blue);padding:1px 5px;border-radius:3px;margin-left:4px">' + s.cat + '</span>' : '';
+      const safeSku  = s.sku.replace(/'/g,"\\'");
+      const safeName = s.name.replace(/'/g,"\\'");
+      return '<div class="sku-option" onclick="selectSku(\'' + safeSku + '\',\'' + safeName + '\')">'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<span style="font-family:\'DM Mono\',monospace;font-size:11px;background:#EBF2FF;color:var(--blue);padding:2px 6px;border-radius:4px;white-space:nowrap">' + skuHl + '</span>'
+        + '<span style="font-size:13px;color:var(--text);flex:1">' + nameHl + '</span>'
+        + catBadge + '</div></div>';
     }).join('');
   }
   dd.style.display = 'block';
-
-  // close on outside click
-  setTimeout(() => {
-    document.addEventListener('click', closeSkuOnOutside, { once: true });
-  }, 0);
+  setTimeout(() => { document.addEventListener('click', closeSkuOnOutside, { once: true }); }, 0);
 }
 
 function highlight(text, query) {
   if (!query) return text;
-  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').split(/\s+/).join('|') + ')', 'gi');
   return text.replace(re, '<mark style="background:#FEF9C3;border-radius:2px;padding:0 1px">$1</mark>');
 }
 
 function selectSku(sku, name) {
   document.getElementById('modalSku').value = sku;
-  document.getElementById('skuSearchInput').value = `${sku} — ${name}`;
+  document.getElementById('skuSearchInput').value = sku + ' — ' + name;
   document.getElementById('skuDropdown').style.display = 'none';
-  // auto-fill stock qty if known from priority list
-  const match = (prioritySkus || []).find(s => (s.sku_code || s.sku) === sku);
 }
 
 function closeSkuOnOutside(e) {
@@ -2450,6 +2489,25 @@ window.addEventListener('DOMContentLoaded', () => {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="document.getElementById('addSkuModal').classList.remove('open')">Batal</button>
       <button class="btn btn-primary" onclick="submitAdditionalSku()">✅ Tambah ke Priority List</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO CHOICE SHEET -->
+<div id="photoChoiceSheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;align-items:flex-end" onclick="if(event.target===this)closePhotoChoice()">
+  <div style="background:white;border-radius:20px 20px 0 0;width:100%;padding:20px 16px calc(32px + env(safe-area-inset-bottom,0px))">
+    <div style="width:40px;height:4px;background:#E5E7EB;border-radius:2px;margin:0 auto 20px"></div>
+    <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:16px;text-align:center">📷 Tambah Foto Bukti</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button onclick="useCamera()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;background:white;cursor:pointer;font-size:14px;font-weight:600;color:var(--navy);text-align:left">
+        <span style="font-size:28px">📷</span>
+        <div><div>Ambil Foto Sekarang</div><div style="font-size:12px;color:var(--muted);font-weight:400">Buka kamera langsung</div></div>
+      </button>
+      <button onclick="useGallery()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;background:white;cursor:pointer;font-size:14px;font-weight:600;color:var(--navy);text-align:left">
+        <span style="font-size:28px">🖼️</span>
+        <div><div>Pilih dari Galeri</div><div style="font-size:12px;color:var(--muted);font-weight:400">Pilih foto yang sudah ada</div></div>
+      </button>
+      <button onclick="closePhotoChoice()" style="padding:12px;border:none;background:#F3F4F6;border-radius:12px;cursor:pointer;font-size:14px;color:#6B7280;font-weight:600">Batal</button>
     </div>
   </div>
 </div>
