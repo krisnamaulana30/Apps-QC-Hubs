@@ -779,7 +779,10 @@ tr:hover td { background: #F5F8FF; }
         <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:120px" onclick="loadPriorityFromSheets()">📥 Load Priority SKUs</button>
         <button class="btn btn-ghost" style="flex:1;justify-content:center;min-width:120px" onclick="loadHubZonesFromSheets()">🏭 Load Hub Zones</button>
         <button class="btn btn-ghost" style="flex:1;justify-content:center;min-width:120px" onclick="loadResultsFromSheets().then(()=>showToast('✅ Sync selesai','success'))">🔄 Sync Log dari Sheets</button>
-        <button class="btn btn-ghost btn-sm" style="color:#DC2626;border-color:#DC2626" onclick="clearAllData()">🗑 Reset Data</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" style="color:#DC2626;border-color:#DC2626" onclick="clearAllData()">🗑 Reset Data Lokal</button>
+        <button class="btn btn-ghost btn-sm" style="color:#DC2626;border-color:#DC2626" onclick="clearSheetsData()">🗑 Clear Data di Sheets</button>
       </div>
       <div id="connectionStatus" style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;padding:10px;font-size:12px;color:#92400E">
         ⚠️ Belum terhubung — paste Apps Script URL di atas lalu test connection
@@ -1625,17 +1628,48 @@ function saveScriptUrl(val) {
   if (val) localStorage.setItem('scriptUrl', val);
 }
 function clearAllData() {
-  if (!confirm('Reset semua data inspeksi? Data yang belum di-sync ke Sheets akan hilang permanen.')) return;
-  ['aqc_inspLog','aqc_inspItems','aqc_priSkus','aqc_addSkus','aqc_hub','aqc_inspector'].forEach(k => localStorage.removeItem(k));
-  inspectionLog = []; inspItems = []; prioritySkus = []; additionalSkus = [];
-  selectedHub = null; window.currentInspectorName = null;
+  if (!confirm('Reset semua data inspeksi di app ini?\n\nData di Google Sheets TIDAK akan terhapus.\nUntuk hapus Sheets juga, gunakan tombol "🗑 Clear Sheets" di bawah.')) return;
+  
+  // Clear ALL localStorage keys
+  Object.keys(localStorage).filter(k => k.startsWith('aqc_')).forEach(k => localStorage.removeItem(k));
+  
+  // Reset all in-memory state
+  inspectionLog = [];
+  inspItems = [];
+  prioritySkus = [];
+  additionalSkus = [];
+  selectedHub = null;
+  window.currentInspectorName = null;
+  
+  // Reset UI
   const hubLabel = document.getElementById('hubBadgeLabel');
   if (hubLabel) hubLabel.textContent = 'Select Hub';
   const badge = document.getElementById('inspectorBadge');
   if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
-  renderInspectionList(); renderHistory(); updateCounts(); renderPriority();
-  showToast('🗑 Semua data direset', '');
+  
+  renderInspectionList();
+  renderHistory();
+  updateCounts();
+  renderPriority();
+  showToast('🗑 Semua data lokal direset', '');
   setTimeout(() => openHubSelector(), 500);
+}
+
+async function clearSheetsData() {
+  const url = getScriptUrl();
+  if (!url) { showToast('⚠️ Set Apps Script URL dulu', 'error'); return; }
+  if (!confirm('⚠️ HAPUS SEMUA data inspeksi di Google Sheets?\n\nIni akan menghapus semua baris di tab InspectionResults dan DailySummary.\nPriorityList dan HubConfig TIDAK akan terhapus.\n\nTidak bisa di-undo!')) return;
+  showToast('🗑 Menghapus data di Sheets...', '');
+  try {
+    const res = await fetch(url + '?action=clearData');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    showToast('✅ Data Sheets berhasil dihapus!', 'success');
+    clearAllData();
+  } catch(e) {
+    // If endpoint not available, give manual instruction
+    showToast('ℹ️ Buka Apps Script → Run clearAllInspectionData()', '');
+  }
 }
 
 function loadSavedSettings() {
