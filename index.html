@@ -710,6 +710,7 @@ tr:hover td { background: #F5F8FF; }
     </select>
     <input type="date" class="form-input" id="histDateFilter" onchange="renderHistory()" style="width:145px;font-size:12px">
     <button class="btn btn-ghost btn-sm" onclick="clearHistFilters()">✕ Clear</button>
+    <button class="btn btn-ghost btn-sm" onclick="loadResultsFromSheets()">🔄 Sync dari Sheets</button>
     <button class="btn btn-ghost btn-sm" onclick="exportToSheets()">📤 Export to Sheets</button>
   </div>
   <div id="histCount" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
@@ -1102,7 +1103,7 @@ function showPage(id) {
   if (map[id] !== undefined) document.querySelectorAll('.topbar-nav button')[map[id]]?.classList.add('active');
   if (id === 'priority') renderPriority();
   if (id === 'hubs') renderHubs();
-  if (id === 'history') renderHistory();
+  if (id === 'history') { renderHistory(); setTimeout(() => loadResultsFromSheets(), 300); }
   if (id === 'dashboard') { populateDashboardFilters(); renderDashboard(); }
 }
 
@@ -2660,38 +2661,54 @@ async function loadResultsFromSheets() {
   try {
     const res  = await fetch(url + '?action=getResults');
     const data = await res.json();
-    if (data.error || !data.results) return;
-    // Map sheet rows to inspectionLog format
-    const fromSheets = data.results.map(r => ({
-      ts:       r['Timestamp']     || r['timestamp']     || '',
-      hub:      r['Hub']           || r['hub']           || '',
-      sku:      r['SKU Number']    || r['sku_number']    || r['sku']  || '',
-      name:     r['Product Name']  || r['product_name']  || r['name'] || '',
-      cat:      r['L2 Category']   || r['l2_category']   || r['cat']  || '',
-      shift:    parseInt(r['Shift'] || r['shift'] || 1),
-      stock:    parseInt(r['Stock Qty'] || r['stock_qty'] || 0),
-      sample:   parseInt(r['Sample Qty (75%)'] || r['sample_qty'] || 0),
-      result:   (r['Result'] || r['result'] || '').toLowerCase(),
-      badQty:   parseInt(r['Bad Qty'] || r['bad_qty'] || 0),
-      reasons:  (r['Defect Reasons'] || r['defect_reasons'] || '').split(',').map(s=>s.trim()).filter(Boolean),
-      photoUrls:[],
-      inspector: r['Inspector'] || r['inspector'] || '',
+    if (data.error) return;
+    
+    // Support both 'results' and 'records' key names
+    const rows = data.results || data.records || [];
+    if (!rows.length) return;
+
+    // Map sheet columns → app inspectionLog format
+    const fromSheets = rows.map(r => ({
+      ts:       String(r['Timestamp']           || r['timestamp']      || ''),
+      hub:      String(r['Hub']                 || r['hub']            || ''),
+      sku:      String(r['SKU Number']          || r['sku_number']     || r['sku']         || ''),
+      name:     String(r['Product Name']        || r['product_name']   || r['name']        || ''),
+      cat:      String(r['L2 Category']         || r['l2_category']    || r['cat']         || ''),
+      shift:    parseInt(r['Shift']             || r['shift']          || 1),
+      stock:    parseInt(r['Stock Qty']         || r['stock_qty']      || 0) || 0,
+      sample:   parseInt(r['Sample Qty (75%)']  || r['sample_qty']     || 0) || 0,
+      result:   (r['Result']                    || r['result']         || '').toLowerCase(),
+      badQty:   parseInt(r['Bad Qty']           || r['bad_qty']        || 0) || 0,
+      reasons:  String(r['Defect Reasons']      || r['defect_reasons'] || '').split(',').map(s=>s.trim()).filter(Boolean),
+      photoUrls: [],
+      inspector: String(r['Inspector']          || r['inspector']      || ''),
+      notes:     String(r['Notes']              || r['notes']          || ''),
     })).filter(r => r.sku);
 
-    // Merge: keep local entries not in sheet, add sheet entries
-    const localSkus = new Set(inspectionLog.map(r => r.sku + '_' + r.ts));
-    const newFromSheet = fromSheets.filter(r => !localSkus.has(r.sku + '_' + r.ts));
-    if (newFromSheet.length > 0) {
-      inspectionLog = [...newFromSheet, ...inspectionLog]
-        .sort((a,b) => new Date(b.ts) - new Date(a.ts))
+    if (!fromSheets.length) return;
+
+    // Merge: sheet data is source of truth — replace local log
+    // Use timestamp+sku as dedup key
+    const localKeys = new Set(inspectionLog.map(r => r.ts + '|' + r.sku));
+    const newEntries = fromSheets.filter(r => !localKeys.has(r.ts + '|' + r.sku));
+    
+    if (newEntries.length > 0) {
+      inspectionLog = [...newEntries, ...inspectionLog]
+        .sort((a, b) => {
+          const da = new Date(a.ts), db = new Date(b.ts);
+          return isNaN(db) || isNaN(da) ? 0 : db - da;
+        })
         .slice(0, 2000);
       saveDataToLocal();
       renderHistory();
       updateCounts();
-      showToast('🔄 ' + newFromSheet.length + ' record dimuat dari Sheets', '');
+      const logPage = document.getElementById('page-history');
+      if (logPage && logPage.classList.contains('active')) renderHistory();
+      showToast('🔄 ' + newEntries.length + ' data baru dari Sheets', '');
     }
   } catch(e) {
     // Silently fail — offline or not configured
+    console.log('loadResultsFromSheets error:', e.message);
   }
 }
 async function exportToSheets() {
