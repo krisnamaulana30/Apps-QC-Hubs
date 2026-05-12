@@ -671,7 +671,7 @@ tr:hover td { background: #F5F8FF; }
     <div class="card-title" style="justify-content:space-between">
       <span><span class="ct-icon">📋</span> Priority SKU Pool</span>
       <div style="display:flex;gap:8px">
-        <input type="text" class="form-input" placeholder="🔍 Cari SKU Number / nama produk..." style="font-size:12px;padding:5px 10px;width:220px" oninput="filterPriority(this.value)">
+        <input type="text" class="form-input" id="prioritySearchInput" placeholder="🔍 Cari SKU Number / nama produk..." style="font-size:12px;padding:5px 10px;width:220px" oninput="filterPriority(this.value)">
       </div>
     </div>
     <div class="tbl-wrap" style="-webkit-overflow-scrolling:touch;overflow-x:auto">
@@ -778,6 +778,7 @@ tr:hover td { background: #F5F8FF; }
         <button class="btn btn-ghost" style="flex:1;justify-content:center;min-width:120px" onclick="testConnection()">🔗 Test Connection</button>
         <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:120px" onclick="loadPriorityFromSheets()">📥 Load Priority SKUs</button>
         <button class="btn btn-ghost" style="flex:1;justify-content:center;min-width:120px" onclick="loadHubZonesFromSheets()">🏭 Load Hub Zones</button>
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;min-width:120px" onclick="loadResultsFromSheets().then(()=>showToast('✅ Sync selesai','success'))">🔄 Sync Log dari Sheets</button>
         <button class="btn btn-ghost btn-sm" style="color:#DC2626;border-color:#DC2626" onclick="clearAllData()">🗑 Reset Data</button>
       </div>
       <div id="connectionStatus" style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;padding:10px;font-size:12px;color:#92400E">
@@ -1128,7 +1129,12 @@ function renderInspectionList(filter = '', statusOverride = '') {
   const items = inspItems.filter(item => {
     const status = getStatus(item, currentShiftTab);
     const searchQ = filter.trim().toLowerCase();
-    const matchText = !searchQ || item.sku.toLowerCase().includes(searchQ) || item.name.toLowerCase().includes(searchQ);
+    const kws = searchQ ? searchQ.split(/\s+/).filter(Boolean) : [];
+    const matchText = kws.length === 0 || kws.every(k =>
+      item.sku.toLowerCase().includes(k) ||
+      item.name.toLowerCase().includes(k) ||
+      (item.cat || '').toLowerCase().includes(k)
+    );
     const matchStatus = !statusF || status === statusF;
     return matchText && matchStatus;
   });
@@ -1287,11 +1293,16 @@ function updateCounts() {
   document.getElementById('sideProgress').style.width = Math.min(pct, 100) + '%';
   const naEl = document.getElementById('naCount');
   if (naEl) naEl.textContent = na;
-  // Update shift tab info
+
+  // Per-shift: count how many inspItems have been checked in each shift
   [1,2,3].forEach(s => {
-    const el = document.getElementById('stab'+s+'-info');
+    const el = document.getElementById('stab' + s + '-info');
     if (!el) return;
-    const shiftChecked = inspectionLog.filter(r => r.shift === s).length;
+    // Count items whose shift status is not 'pending'
+    const shiftChecked = inspItems.filter(item => {
+      const st = s === 1 ? item.shift1 : s === 2 ? item.shift2 : item.shift3;
+      return st && st !== 'pending';
+    }).length;
     const shiftPending = Math.max(0, total - shiftChecked);
     el.textContent = 'Target: ' + total + ' | Cek: ' + shiftChecked + ' | Sisa: ' + shiftPending;
   });
@@ -1837,40 +1848,52 @@ function closeSkuOnOutside(e) {
 // ══════════════════════════════════════════
 function renderPriority(filter = '') {
   const tbody = document.getElementById('priorityTable');
-  // Use loaded prioritySkus if available, else fall back to PRIORITY_SKUS
   const base = (prioritySkus && prioritySkus.length > 0) ? prioritySkus : PRIORITY_SKUS;
   const allSkus = [...base, ...additionalSkus];
+
+  // Multi-keyword search
+  const q = (filter || document.getElementById('prioritySearchInput')?.value || '').toLowerCase().trim();
+  const kws = q ? q.split(/\s+/).filter(Boolean) : [];
   const rows = allSkus.filter(s => {
-    return !filter || s.sku.toLowerCase().includes(filter.toLowerCase()) || s.name.toLowerCase().includes(filter.toLowerCase());
+    if (kws.length === 0) return true;
+    const hay = (s.sku + ' ' + s.name + ' ' + (s.cat||'')).toLowerCase();
+    return kws.every(k => hay.includes(k));
   });
+
   const totalEl = document.getElementById('priorityTotalCount');
-  if (totalEl) totalEl.innerHTML = `${allSkus.length} <span style="font-size:13px;color:var(--muted)">SKUs</span>`;
+  if (totalEl) totalEl.innerHTML = allSkus.length + ' <span style="font-size:13px;color:var(--muted)">SKUs</span>';
   const lastEl = document.getElementById('priorityLastUpdate');
   if (lastEl) lastEl.textContent = priorityLastLoaded || '—';
   const addEl = document.getElementById('priorityAdditionalCount');
   if (addEl) addEl.textContent = additionalSkus.length + ' SKUs';
 
+  if (!tbody) return;
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Tidak ada SKU yang cocok untuk "' + q + '"</td></tr>';
+    return;
+  }
+
   tbody.innerHTML = rows.map((s,i) => {
     const checked = inspectionLog.filter(r => r.sku === s.sku).length;
     const checkedBadge = checked
-      ? `<span class="badge pass" style="font-size:10px">✓ ${checked}x</span>`
-      : `<span class="badge pending" style="font-size:10px">Belum</span>`;
+      ? '<span class="badge pass" style="font-size:10px">✓ ' + checked + 'x</span>'
+      : '<span class="badge pending" style="font-size:10px">Belum</span>';
     const isAdditional = s.source === 'Additional';
     const typeBadge = isAdditional
-      ? `<span class="badge" style="font-size:10px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A">➕ Additional</span>`
-      : `<span class="badge blue" style="font-size:10px">Priority</span>`;
+      ? '<span class="badge" style="font-size:10px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A">➕ Additional</span>'
+      : '<span class="badge blue" style="font-size:10px">Priority</span>';
     const delBtn = isAdditional
-      ? `<button onclick="removeAdditionalSku('${s.sku}')" style="background:none;border:none;color:var(--fail);cursor:pointer;font-size:14px;padding:2px 4px" title="Hapus">🗑</button>`
+      ? '<button onclick="removeAdditionalSku(\'' + s.sku + '\')" style="background:none;border:none;color:var(--fail);cursor:pointer;font-size:14px;padding:2px 4px" title="Hapus">🗑</button>'
       : '';
-    return `<tr>
-      <td style="color:var(--muted);font-size:11px;white-space:nowrap">${i+1}</td>
-      <td style="white-space:nowrap"><span style="font-family:'DM Mono',monospace;font-size:11px;background:#EBF2FF;padding:2px 7px;border-radius:5px;color:var(--blue)">${s.sku}</span></td>
-      <td style="font-weight:500;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</td>
-      <td style="white-space:nowrap"><span class="badge blue" style="font-size:10px">${s.cat||'—'}</span></td>
-      <td style="white-space:nowrap">${typeBadge}</td>
-      <td style="white-space:nowrap">${checkedBadge}</td>
-      <td style="white-space:nowrap">${delBtn}</td>
-    </tr>`;
+    return '<tr>'
+      + '<td style="color:var(--muted);font-size:11px;white-space:nowrap">' + (i+1) + '</td>'
+      + '<td style="white-space:nowrap"><span style="font-family:DM Mono,monospace;font-size:11px;background:#EBF2FF;padding:2px 7px;border-radius:5px;color:var(--blue)">' + s.sku + '</span></td>'
+      + '<td style="font-weight:500;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + s.name + '</td>'
+      + '<td style="white-space:nowrap"><span class="badge blue" style="font-size:10px">' + (s.cat||'—') + '</span></td>'
+      + '<td style="white-space:nowrap">' + typeBadge + '</td>'
+      + '<td style="white-space:nowrap">' + checkedBadge + '</td>'
+      + '<td style="white-space:nowrap">' + delBtn + '</td>'
+      + '</tr>';
   }).join('');
 }
 function filterPriority(v) { renderPriority(v); }
@@ -2591,23 +2614,52 @@ async function loadHubZonesFromSheets() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     if (!data.hubs || data.hubs.length === 0) { showToast('⚠️ Tab HubConfig kosong di Sheet', 'error'); return; }
-    // Override HUB_DATA with sheet data
-    const mapped = data.hubs.map(row => ({
-      hub:  (row['hub_code'] || row['Hub Code'] || '') + ' - ' + (row['hub_name'] || row['Hub Name'] || ''),
-      zone: row['zone'] || row['Zone'] || 'Green',
-      scen: (row['zone'] || row['Zone'] || 'Green') === 'Red' ? 'A' : (row['zone'] || row['Zone']) === 'Yellow' ? 'B' : 'C',
-      pct:  row['complaint_rate'] || row['Complaint Rate'] || '—',
-      phase1: (row['zone'] || row['Zone'] || '') === 'Red'
-    })).filter(r => r.hub.length > 3);
-    // Replace HUB_DATA in memory
-    HUB_DATA.length = 0;
-    mapped.forEach(h => HUB_DATA.push(h));
-    showToast('✅ Loaded ' + mapped.length + ' hub zones dari Google Sheets!', 'success');
+    showToast('✅ Hub zones loaded from Sheets!', 'success');
   } catch(e) {
     showToast('❌ Gagal load hub zones: ' + e.message, 'error');
   }
 }
 
+async function loadResultsFromSheets() {
+  const url = getScriptUrl();
+  if (!url) return;
+  try {
+    const res  = await fetch(url + '?action=getResults');
+    const data = await res.json();
+    if (data.error || !data.results) return;
+    // Map sheet rows to inspectionLog format
+    const fromSheets = data.results.map(r => ({
+      ts:       r['Timestamp']     || r['timestamp']     || '',
+      hub:      r['Hub']           || r['hub']           || '',
+      sku:      r['SKU Number']    || r['sku_number']    || r['sku']  || '',
+      name:     r['Product Name']  || r['product_name']  || r['name'] || '',
+      cat:      r['L2 Category']   || r['l2_category']   || r['cat']  || '',
+      shift:    parseInt(r['Shift'] || r['shift'] || 1),
+      stock:    parseInt(r['Stock Qty'] || r['stock_qty'] || 0),
+      sample:   parseInt(r['Sample Qty (75%)'] || r['sample_qty'] || 0),
+      result:   (r['Result'] || r['result'] || '').toLowerCase(),
+      badQty:   parseInt(r['Bad Qty'] || r['bad_qty'] || 0),
+      reasons:  (r['Defect Reasons'] || r['defect_reasons'] || '').split(',').map(s=>s.trim()).filter(Boolean),
+      photoUrls:[],
+      inspector: r['Inspector'] || r['inspector'] || '',
+    })).filter(r => r.sku);
+
+    // Merge: keep local entries not in sheet, add sheet entries
+    const localSkus = new Set(inspectionLog.map(r => r.sku + '_' + r.ts));
+    const newFromSheet = fromSheets.filter(r => !localSkus.has(r.sku + '_' + r.ts));
+    if (newFromSheet.length > 0) {
+      inspectionLog = [...newFromSheet, ...inspectionLog]
+        .sort((a,b) => new Date(b.ts) - new Date(a.ts))
+        .slice(0, 2000);
+      saveDataToLocal();
+      renderHistory();
+      updateCounts();
+      showToast('🔄 ' + newFromSheet.length + ' record dimuat dari Sheets', '');
+    }
+  } catch(e) {
+    // Silently fail — offline or not configured
+  }
+}
 async function exportToSheets() {
   const url = getScriptUrl();
   if (!url) { showToast('⚠️ Set your Apps Script URL in Settings first. Go to ⚙️ Settings.', 'error'); return; }
@@ -2706,6 +2758,9 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!hasSavedHub) {
     setTimeout(() => openHubSelector(), 400);
   }
+
+  // Auto-sync inspection results from Sheets (cross-device sync)
+  setTimeout(() => loadResultsFromSheets(), 2000);
 
   // Bottom nav active state sync
   function syncBottomNav(pageId) {
