@@ -586,20 +586,56 @@ tr:hover td { background: #F5F8FF; }
 
   <div class="stats-grid" id="dashStats">
     <div class="stat-card"><div class="stat-label">Total Inspections</div><div class="stat-val blue" id="ds-total">—</div><div class="stat-sub" id="ds-total-sub">loading...</div></div>
-    <div class="stat-card"><div class="stat-label">Pass Rate</div><div class="stat-val green" id="ds-pass">—</div><div class="stat-sub" id="ds-pass-sub"></div></div>
-    <div class="stat-card"><div class="stat-label">Defect Rate</div><div class="stat-val red" id="ds-bad">—</div><div class="stat-sub" id="ds-bad-sub"></div></div>
-    <div class="stat-card"><div class="stat-label">SKUs Covered</div><div class="stat-val" id="ds-sku">—</div><div class="stat-sub" id="ds-sku-sub"></div></div>
+    <div class="stat-card"><div class="stat-label">Pass Rate</div><div class="stat-val green" id="ds-pass">—</div><div class="stat-sub" id="ds-pass-sub">% produk lolos</div></div>
+    <div class="stat-card"><div class="stat-label">Defect Rate</div><div class="stat-val red" id="ds-bad">—</div><div class="stat-sub" id="ds-bad-sub">% rata-rata bad qty</div></div>
+    <div class="stat-card"><div class="stat-label">Stok N/A Rate</div><div class="stat-val warn" id="ds-sku">—</div><div class="stat-sub" id="ds-sku-sub">% produk tidak ada</div></div>
   </div>
 
   <div class="grid-2" style="margin-bottom:14px">
     <div class="card">
-      <div class="card-title"><span class="ct-icon">⚠️</span> Top Defect Reasons</div>
+      <div class="card-title" style="justify-content:space-between">
+        <span><span class="ct-icon">⚠️</span> Top Defect Reasons</span>
+        <select id="defectHubFilter" class="form-input form-select" onchange="renderDashboard()" style="width:140px;font-size:11px;padding:3px 6px">
+          <option value="">Semua Hub</option>
+        </select>
+      </div>
       <div id="dashDefects" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
     <div class="card">
-      <div class="card-title"><span class="ct-icon">🏭</span> Results by Hub</div>
+      <div class="card-title" style="justify-content:space-between">
+        <span><span class="ct-icon">🏆</span> Top Hub — Defect Rate Tertinggi</span>
+        <button onclick="showAllHubsModal()" style="font-size:11px;background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;color:var(--blue)">Lihat Semua</button>
+      </div>
       <div id="dashHubBreakdown" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto"></div>
     </div>
+  </div>
+
+  <!-- Productivity Section -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span><span class="ct-icon">⚡</span> Productivity Inspector</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <select id="prodHubFilter" class="form-input form-select" onchange="renderDashboard()" style="width:160px;font-size:11px;padding:3px 6px">
+          <option value="">Semua Hub</option>
+        </select>
+        <select id="prodShiftFilter" class="form-input form-select" onchange="renderDashboard()" style="width:110px;font-size:11px;padding:3px 6px">
+          <option value="">Semua Shift</option>
+          <option value="1">Shift 1</option>
+          <option value="2">Shift 2</option>
+          <option value="3">Shift 3</option>
+        </select>
+      </div>
+    </div>
+    <!-- Summary per shift -->
+    <div id="prodShiftSummary" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap"></div>
+    <!-- Per inspector table -->
+    <div class="tbl-wrap" style="overflow-x:auto">
+      <table style="min-width:500px">
+        <thead><tr><th>Inspector</th><th>Hub</th><th>Shift</th><th>Total Cek</th><th>Good</th><th>Bad</th><th>Defect %</th><th>SKU/jam</th><th>Durasi</th></tr></thead>
+        <tbody id="prodTable"></tbody>
+      </table>
+    </div>
+    <div id="prodTotalRow" style="background:#F0F5FF;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:13px;font-weight:700;color:var(--navy)"></div>
   </div>
 
   <div class="card" style="margin-bottom:14px">
@@ -609,7 +645,7 @@ tr:hover td { background: #F5F8FF; }
     </div>
     <div class="tbl-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="min-width:600px">
-        <thead><tr><th>SKU</th><th>Product</th><th>Hub</th><th>Total Cek</th><th>Good</th><th>Bad</th><th>Bad Rate</th><th>Top Reason</th></tr></thead>
+        <thead><tr><th>SKU</th><th>Product</th><th>Hub</th><th>Total Cek</th><th>Good Qty</th><th>Bad Qty</th><th>Bad Rate</th><th>Top Reason</th></tr></thead>
         <tbody id="dashSkuBreakdown"></tbody>
       </table>
     </div>
@@ -631,10 +667,19 @@ tr:hover td { background: #F5F8FF; }
     </div>
     <div class="tbl-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="min-width:700px">
-        <thead><tr><th>Waktu</th><th>Hub</th><th>SKU</th><th>Produk</th><th>Shift</th><th>Bad Qty</th><th>Bad %</th><th>Reason</th><th>Foto (max 5)</th><th>Hasil</th></tr></thead>
+        <thead><tr><th>Waktu</th><th>Hub</th><th>SKU</th><th>Produk</th><th>Shift</th><th>Good Qty</th><th>Bad Qty</th><th>Bad %</th><th>MFG</th><th>EXP</th><th>Reason</th><th>Foto</th><th>Hasil</th></tr></thead>
         <tbody id="dashboardLog"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- All Hubs Modal -->
+<div id="allHubsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:white;border-radius:14px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;padding:20px">
+    <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:14px">🏭 Semua Hub — Defect Rate</div>
+    <div id="allHubsList"></div>
+    <button onclick="document.getElementById('allHubsModal').style.display='none'" style="margin-top:14px;width:100%;padding:10px;background:var(--navy);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700">Tutup</button>
   </div>
 </div>
 
@@ -895,29 +940,56 @@ tr:hover td { background: #F5F8FF; }
         </div>
       </div>
 
+      <!-- Good/Bad qty split — shown when result selected -->
+      <div id="qtyPanel" style="display:none;background:#F8FAFF;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px">📊 Breakdown Qty Hasil Inspeksi</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:100px">
+            <div style="font-size:11px;color:var(--pass);font-weight:700;margin-bottom:4px">✅ Qty GOOD</div>
+            <input type="number" class="form-input" id="goodQtyInput" placeholder="0" min="0" oninput="validateQtySplit()" style="width:100%;text-align:center;font-weight:700;color:var(--pass)">
+          </div>
+          <div style="flex:1;min-width:100px">
+            <div style="font-size:11px;color:var(--fail);font-weight:700;margin-bottom:4px">❌ Qty BAD</div>
+            <input type="number" class="form-input" id="badQtyInput" placeholder="0" min="0" oninput="updateBadPct();validateQtySplit()" style="width:100%;text-align:center;font-weight:700;color:var(--fail)">
+          </div>
+        </div>
+        <div id="qtySplitHint" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center"></div>
+        <div id="badPctShow" style="font-size:13px;color:var(--fail);font-weight:700;text-align:center;margin-top:4px"></div>
+      </div>
+
       <!-- Defect panel (hidden until BAD selected) -->
       <div class="defect-panel" id="defectPanel" style="display:none">
         <div class="defect-title">⚠️ Detail BAD / Defect</div>
 
-        <!-- STEP 1: Qty bad dulu -->
-        <div style="margin-bottom:12px">
-          <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:6px">① Jumlah item BAD</div>
-          <div class="defect-qty-row" style="margin-top:0">
-            <input type="number" class="form-input" id="badQtyInput" placeholder="Masukkan qty bad" min="1" style="flex:1">
-            <span id="badPctShow" style="color:var(--fail);font-weight:700;white-space:nowrap"></span>
-          </div>
-        </div>
-
-        <!-- STEP 2: Pilih reason -->
+        <!-- Reason with qty per reason -->
         <div>
-          <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:6px">② Defect Reason (pilih min. 1)</div>
+          <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:6px">① Defect Reason + Qty per Reason</div>
           <div id="selectedReasonsSummary" style="margin-bottom:8px">
             <span style="font-size:12px;color:var(--muted)" id="noReasonHint">Belum ada reason dipilih</span>
             <div class="defect-reasons" id="selectedChipsDisplay" style="margin-bottom:0"></div>
           </div>
+          <div id="reasonQtyList" style="display:none;margin-bottom:10px"></div>
           <button class="btn btn-ghost" style="width:100%;justify-content:center;border:1.5px dashed var(--fail);color:var(--fail);font-size:13px;padding:10px" onclick="openReasonPicker()">
             ➕ Pilih / Ubah Defect Reason
           </button>
+        </div>
+      </div>
+
+      <!-- MFG & Expired Date (optional) -->
+      <div class="form-group" style="background:#FEFCE8;border:1px solid #FDE68A;border-radius:10px;padding:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;color:#92400E">📅 MFG & Expired Date (Opsional)</div>
+          <button id="scanBarcodeBtn" onclick="openBarcodeScanner()" style="background:var(--navy);color:white;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">📷 Scan Barcode</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px">
+            <div style="font-size:11px;color:#92400E;font-weight:600;margin-bottom:4px">MFG Date</div>
+            <input type="date" class="form-input" id="mfgDateInput" style="width:100%;font-size:12px">
+          </div>
+          <div style="flex:1;min-width:120px">
+            <div style="font-size:11px;color:#92400E;font-weight:600;margin-bottom:4px">Expired Date</div>
+            <input type="date" class="form-input" id="expDateInput" style="width:100%;font-size:12px">
+          </div>
         </div>
       </div>
 
@@ -936,7 +1008,7 @@ tr:hover td { background: #F5F8FF; }
 
       <div class="form-group">
         <div class="form-label">Notes (optional)</div>
-        <textarea class="form-input" rows="2" placeholder="Additional notes..." style="resize:none"></textarea>
+        <textarea class="form-input" id="modalNotes" rows="2" placeholder="Additional notes..." style="resize:none"></textarea>
       </div>
     </div>
     </div><!-- end modal-body -->
@@ -1103,7 +1175,7 @@ function showPage(id) {
   if (map[id] !== undefined) document.querySelectorAll('.topbar-nav button')[map[id]]?.classList.add('active');
   if (id === 'priority') renderPriority();
   if (id === 'hubs') renderHubs();
-  if (id === 'history') { renderHistory(); setTimeout(() => loadResultsFromSheets(), 300); }
+  if (id === 'history') { renderHistory(); if (getScriptUrl()) setTimeout(() => loadResultsFromSheets(), 300); }
   if (id === 'dashboard') { populateDashboardFilters(); renderDashboard(); }
 }
 
@@ -1346,9 +1418,18 @@ function openAddModal(sku = '') {
   });
   document.getElementById('sampleResult').textContent = '—';
   document.getElementById('modalStock').value = '';
-  document.getElementById('badPctShow').textContent = '';
   document.getElementById('selectedChipsDisplay').innerHTML = '';
   document.getElementById('noReasonHint').style.display = '';
+  // Reset new fields
+  const qp = document.getElementById('qtyPanel'); if (qp) qp.style.display = 'none';
+  const gi = document.getElementById('goodQtyInput'); if (gi) gi.value = '';
+  const bi = document.getElementById('badQtyInput'); if (bi) bi.value = '';
+  const bp = document.getElementById('badPctShow'); if (bp) bp.textContent = '';
+  const qh = document.getElementById('qtySplitHint'); if (qh) qh.textContent = '';
+  const mfg = document.getElementById('mfgDateInput'); if (mfg) mfg.value = '';
+  const exp = document.getElementById('expDateInput'); if (exp) exp.value = '';
+  const mn = document.getElementById('modalNotes'); if (mn) mn.value = '';
+  const rql = document.getElementById('reasonQtyList'); if (rql) { rql.style.display='none'; rql.innerHTML=''; }
   document.getElementById('addModal').classList.add('open');
 }
 function closeModal() { document.getElementById('addModal').classList.remove('open'); }
@@ -1364,16 +1445,50 @@ function selectResult(r) {
   [gBtn, bBtn, nBtn].forEach(b => { if(b) { b.style.background = 'transparent'; b.style.color = ''; b.style.borderColor = 'var(--border)'; }});
   if (naNotice) naNotice.style.display = 'none';
   document.getElementById('defectPanel').style.display = 'none';
+  const qtyPanel = document.getElementById('qtyPanel');
 
   if (r === 'good') {
     gBtn.style.background = 'var(--pass)'; gBtn.style.color = 'white'; gBtn.style.borderColor = 'var(--pass)';
+    if (qtyPanel) qtyPanel.style.display = 'block';
+    // Set all to good by default
+    const stock = parseInt(document.getElementById('modalStock').value) || 0;
+    const sample = Math.ceil(stock * 0.75);
+    if (sample > 0) {
+      const gi = document.getElementById('goodQtyInput');
+      const bi = document.getElementById('badQtyInput');
+      if (gi && !gi.value) gi.value = sample;
+      if (bi && !bi.value) bi.value = 0;
+    }
   } else if (r === 'bad') {
     bBtn.style.background = 'var(--fail)'; bBtn.style.color = 'white'; bBtn.style.borderColor = 'var(--fail)';
+    if (qtyPanel) qtyPanel.style.display = 'block';
     document.getElementById('defectPanel').style.display = 'block';
   } else if (r === 'unavailable') {
     if (nBtn) { nBtn.style.background = '#6B7280'; nBtn.style.color = 'white'; nBtn.style.borderColor = '#6B7280'; }
     if (naNotice) naNotice.style.display = 'block';
+    if (qtyPanel) qtyPanel.style.display = 'none';
   }
+}
+
+function validateQtySplit() {
+  const stock = parseInt(document.getElementById('modalStock').value) || 0;
+  const sample = Math.ceil(stock * 0.75);
+  const good = parseInt(document.getElementById('goodQtyInput')?.value) || 0;
+  const bad  = parseInt(document.getElementById('badQtyInput')?.value) || 0;
+  const hint = document.getElementById('qtySplitHint');
+  if (!sample) return;
+  const total = good + bad;
+  if (hint) {
+    if (total === sample) {
+      hint.style.color = 'var(--pass)';
+      hint.textContent = '✅ Total ' + total + ' pcs = ' + sample + ' sample qty';
+    } else {
+      hint.style.color = total > sample ? 'var(--fail)' : 'var(--warn)';
+      hint.textContent = (total > sample ? '⚠️ Melebihi' : 'ℹ️ Sisa ' + (sample - total) + ' pcs belum diinput') + ' (sample: ' + sample + ' pcs)';
+    }
+  }
+  updateBadPct();
+  updateReasonQtyList();
 }
 
 function calcSample() {
@@ -1505,6 +1620,7 @@ function confirmReasonPicker() {
     });
   }
   closeReasonPicker();
+  updateReasonQtyList();
 }
 
 function closeReasonPicker() {
@@ -1574,19 +1690,33 @@ function submitInspection() {
   }
 
   const reasons = selectedResult === 'bad' ? getSelectedReasons() : [];
-  const badQty = selectedResult === 'bad' ? (parseInt(document.getElementById('badQtyInput').value) || 0) : 0;
+  const badQty  = selectedResult === 'bad' ? (parseInt(document.getElementById('badQtyInput').value) || 0) : 0;
+  const goodQty = parseInt(document.getElementById('goodQtyInput')?.value) || (selectedResult === 'good' ? sample : 0);
+  const mfgDate = document.getElementById('mfgDateInput')?.value || '';
+  const expDate = document.getElementById('expDateInput')?.value || '';
+  const notes   = document.getElementById('modalNotes')?.value || '';
   const photoCount = photoSlots.filter(Boolean).length;
+
+  // Collect qty per reason
+  const reasonQtys = {};
+  reasons.forEach(reason => {
+    const key = 'rqty_' + reason.replace(/[^a-z0-9]/gi,'_');
+    const val = parseInt(document.getElementById(key)?.value) || 0;
+    if (val > 0) reasonQtys[reason] = val;
+  });
 
   // Get product name from sku pool
   const poolMatch = getSkuPool().find(s => s.sku === sku);
   const skuName = poolMatch ? poolMatch.name : sku;
+  const skuCat  = poolMatch ? (poolMatch.cat || '') : '';
 
   const entry = {
     ts: new Date().toLocaleString('id-ID').replace(',',''),
     hub: selectedHub ? selectedHub.hub : (getHub() ? getHub()+' Hub' : 'Unknown'),
-    sku, name: skuName, shift, stock, sample,
-    result: selectedResult, badQty, reasons, photos: photoCount,
-    photoUrls: photoSlots.filter(Boolean),  // base64 images for Drive upload
+    sku, name: skuName, cat: skuCat, shift, stock, sample,
+    result: selectedResult, goodQty, badQty, reasons, reasonQtys,
+    mfgDate, expDate, notes, photos: photoCount,
+    photoUrls: photoSlots.filter(Boolean),
     inspector: getInspector(),
   };
   inspectionLog.unshift(entry);
@@ -1611,6 +1741,248 @@ function submitInspection() {
 }
 
 function fillProductName() {}
+
+// ── Reason Qty list (qty input per each selected reason) ──
+function updateReasonQtyList() {
+  const reasons = getSelectedReasons();
+  const container = document.getElementById('reasonQtyList');
+  if (!container) return;
+  if (!reasons.length) { container.style.display = 'none'; return; }
+  const totalBad = parseInt(document.getElementById('badQtyInput')?.value) || 0;
+  container.style.display = 'block';
+  container.innerHTML = '<div style="font-size:11px;color:#991B1B;font-weight:700;margin-bottom:8px">② Qty bad per Reason (total harus = ' + totalBad + ')</div>'
+    + reasons.map(r => {
+        const key = 'rqty_' + r.replace(/[^a-z0-9]/gi,'_');
+        return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+          + '<span style="flex:1;font-size:12px;color:#374151">' + r + '</span>'
+          + '<input type="number" id="' + key + '" min="0" max="' + totalBad + '" placeholder="0"'
+          + ' style="width:70px;padding:4px 8px;border:1.5px solid #FCA5A5;border-radius:6px;text-align:center;font-weight:700;color:#DC2626;font-size:12px"'
+          + ' oninput="checkReasonQtyTotal()">'
+          + '</div>';
+      }).join('');
+}
+
+function checkReasonQtyTotal() {
+  const reasons = getSelectedReasons();
+  const totalBad = parseInt(document.getElementById('badQtyInput')?.value) || 0;
+  let sum = 0;
+  reasons.forEach(r => {
+    const key = 'rqty_' + r.replace(/[^a-z0-9]/gi,'_');
+    sum += parseInt(document.getElementById(key)?.value) || 0;
+  });
+  const container = document.getElementById('reasonQtyList');
+  const firstLine = container?.querySelector('div');
+  if (firstLine) {
+    firstLine.style.color = sum === totalBad ? 'var(--pass)' : '#991B1B';
+    firstLine.textContent = '② Qty bad per Reason' + (sum === totalBad ? ' ✅ Total = ' + totalBad : ' (total: ' + sum + '/' + totalBad + ')');
+  }
+}
+
+// ── Barcode Scanner ──
+let barcodeStream = null;
+let barcodeInterval = null;
+let scannedData = null;
+
+async function openBarcodeScanner() {
+  const modal = document.getElementById('barcodeScannerModal');
+  modal.style.display = 'flex';
+  scannedData = null;
+  document.getElementById('scanResult').textContent = 'Menunggu barcode...';
+  document.getElementById('scanConfirmBtn').style.display = 'none';
+  try {
+    barcodeStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('barcodeVideo');
+    video.srcObject = barcodeStream;
+    await video.play();
+    // Use BarcodeDetector if available
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','data_matrix','upc_a','upc_e'] });
+      barcodeInterval = setInterval(async () => {
+        try {
+          const barcodes = await detector.detect(video);
+          if (barcodes.length > 0) {
+            const code = barcodes[0].rawValue;
+            handleBarcodeDetected(code);
+          }
+        } catch(e) {}
+      }, 500);
+    } else {
+      document.getElementById('scanResult').innerHTML = '⚠️ Browser tidak support BarcodeDetector.<br>Ketik manual atau gunakan Chrome terbaru.';
+    }
+  } catch(e) {
+    document.getElementById('scanResult').textContent = '❌ Kamera tidak dapat diakses: ' + e.message;
+  }
+}
+
+function handleBarcodeDetected(code) {
+  // Parse: could be "SKU;EXPDATE" or just SKU
+  const parts = code.split(';');
+  const skuCode = parts[0] || code;
+  const dateStr = parts[1] || '';
+  scannedData = { sku: skuCode, raw: code, dateStr };
+  document.getElementById('scanResult').innerHTML = '✅ Terdeteksi: <b>' + skuCode + '</b>' + (dateStr ? ' · EXP: ' + dateStr : '');
+  document.getElementById('scanConfirmBtn').style.display = 'inline-block';
+  clearInterval(barcodeInterval);
+}
+
+function confirmScanResult() {
+  if (!scannedData) return;
+  // Fill SKU search if empty
+  const skuInput = document.getElementById('skuSearchInput');
+  const skuHidden = document.getElementById('modalSku');
+  if (skuInput && !skuHidden?.value) {
+    skuInput.value = scannedData.sku;
+    filterSkuDropdown(scannedData.sku);
+  }
+  // Fill EXP date if detected
+  if (scannedData.dateStr) {
+    const expInput = document.getElementById('expDateInput');
+    if (expInput) {
+      // Try to parse date (format: DDMMYYYY or DD-MM-YYYY)
+      const d = scannedData.dateStr.replace(/\D/g,'');
+      if (d.length === 8) {
+        expInput.value = d.substring(4) + '-' + d.substring(2,4) + '-' + d.substring(0,2);
+      }
+    }
+  }
+  closeBarcodeScanner();
+  showToast('✅ Data barcode digunakan: ' + scannedData.sku, 'success');
+}
+
+function closeBarcodeScanner() {
+  clearInterval(barcodeInterval);
+  if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
+  document.getElementById('barcodeScannerModal').style.display = 'none';
+}
+
+// ── Productivity rendering ──
+function renderProductivity(filtered) {
+  const prodHubF   = document.getElementById('prodHubFilter')?.value || '';
+  const prodShiftF = document.getElementById('prodShiftFilter')?.value || '';
+
+  let data = filtered.filter(r => {
+    const matchHub   = !prodHubF   || (r.hub||'').includes(prodHubF) || prodHubF.includes((r.hub||'').split(' - ')[0]);
+    const matchShift = !prodShiftF || String(r.shift) === prodShiftF;
+    return matchHub && matchShift;
+  });
+
+  // Populate prod hub filter
+  const prodHubSel = document.getElementById('prodHubFilter');
+  if (prodHubSel && prodHubSel.options.length <= 1) {
+    [...new Set(filtered.map(r => r.hub).filter(Boolean))].sort().forEach(h => {
+      if (![...prodHubSel.options].find(o => o.value === h)) prodHubSel.appendChild(new Option(h, h));
+    });
+  }
+
+  // Group by inspector + shift + hub
+  const groups = {};
+  data.forEach(r => {
+    const key = (r.inspector||'Unknown') + '|' + r.shift + '|' + (r.hub||'?').split(' - ')[0];
+    if (!groups[key]) groups[key] = { inspector: r.inspector||'Unknown', shift: r.shift, hub: (r.hub||'?').split(' - ')[0], records: [], firstTs: null, lastTs: null };
+    groups[key].records.push(r);
+    const ts = new Date(r.ts);
+    if (!isNaN(ts)) {
+      if (!groups[key].firstTs || ts < groups[key].firstTs) groups[key].firstTs = ts;
+      if (!groups[key].lastTs  || ts > groups[key].lastTs)  groups[key].lastTs  = ts;
+    }
+  });
+
+  const rows = Object.values(groups).sort((a,b) => b.records.length - a.records.length);
+  const tbody = document.getElementById('prodTable');
+  if (!tbody) return;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(g => {
+    const total  = g.records.length;
+    const good   = g.records.filter(r => r.result === 'good').length;
+    const bad    = g.records.filter(r => r.result === 'bad').length;
+    const defPct = total ? (bad/total*100).toFixed(1)+'%' : '—';
+    let durMins = 0, skuPerHour = '—';
+    if (g.firstTs && g.lastTs && g.lastTs > g.firstTs) {
+      durMins = Math.round((g.lastTs - g.firstTs) / 60000);
+      skuPerHour = durMins > 0 ? (total / (durMins/60)).toFixed(1) : '—';
+    }
+    const durLabel = durMins >= 60 ? Math.floor(durMins/60)+'j '+(durMins%60)+'m' : durMins+'m';
+    return '<tr>'
+      + '<td style="font-weight:700">' + g.inspector + '</td>'
+      + '<td style="font-size:11px">' + g.hub + '</td>'
+      + '<td style="text-align:center">S' + g.shift + '</td>'
+      + '<td style="text-align:center;font-weight:700;color:var(--blue)">' + total + '</td>'
+      + '<td style="text-align:center;color:var(--pass)">' + good + '</td>'
+      + '<td style="text-align:center;color:var(--fail)">' + bad + '</td>'
+      + '<td style="text-align:center;color:' + (parseFloat(defPct)>10?'var(--fail)':parseFloat(defPct)>5?'var(--warn)':'var(--muted)') + ';font-weight:700">' + defPct + '</td>'
+      + '<td style="text-align:center;color:var(--navy);font-weight:600">' + skuPerHour + '</td>'
+      + '<td style="text-align:center;color:var(--muted);font-size:11px">' + (durMins > 0 ? durLabel : '—') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  // Shift summary
+  const shiftSummEl = document.getElementById('prodShiftSummary');
+  if (shiftSummEl) {
+    const shiftData = [1,2,3].map(s => {
+      const sr = data.filter(r => r.shift === s);
+      const inspectors = new Set(sr.map(r => r.inspector).filter(Boolean)).size;
+      return { shift: s, total: sr.length, inspectors };
+    });
+    shiftSummEl.innerHTML = shiftData.map(s =>
+      '<div style="flex:1;min-width:120px;background:#F8FAFF;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">'
+      + '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Shift ' + s.shift + ' · ' + s.inspectors + ' inspector</div>'
+      + '<div style="font-size:20px;font-weight:800;color:var(--navy)">' + s.total + '</div>'
+      + '<div style="font-size:10px;color:var(--muted)">SKU dicek</div>'
+      + '</div>'
+    ).join('');
+  }
+
+  // Total row
+  const totalEl = document.getElementById('prodTotalRow');
+  if (totalEl) {
+    const totalInsp = new Set(data.map(r => r.inspector).filter(Boolean)).size;
+    const totalCek  = data.length;
+    totalEl.textContent = '📊 Total hari ini: ' + totalCek + ' SKU dicek oleh ' + totalInsp + ' inspector — Rata-rata ' + (totalInsp > 0 ? (totalCek/totalInsp).toFixed(1) : 0) + ' SKU/inspector';
+  }
+}
+
+// ── Show all hubs modal ──
+function showAllHubsModal() {
+  const modal = document.getElementById('allHubsModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  const list = document.getElementById('allHubsList');
+  if (!list) return;
+  // Group inspectionLog by hub
+  const hubMap = {};
+  inspectionLog.forEach(r => {
+    const hub = (r.hub||'').split(' - ')[0] || 'Unknown';
+    if (!hubMap[hub]) hubMap[hub] = { total:0, bad:0, totalBadQty:0, totalSample:0 };
+    hubMap[hub].total++;
+    if (r.result === 'bad') {
+      hubMap[hub].bad++;
+      hubMap[hub].totalBadQty += (r.badQty||0);
+      hubMap[hub].totalSample += (r.sample||0);
+    }
+  });
+  const sorted = Object.entries(hubMap).sort((a,b) => {
+    const ra = a[1].totalSample > 0 ? a[1].totalBadQty/a[1].totalSample : 0;
+    const rb = b[1].totalSample > 0 ? b[1].totalBadQty/b[1].totalSample : 0;
+    return rb - ra;
+  });
+  list.innerHTML = sorted.map(([hub, d]) => {
+    const rate = d.totalSample > 0 ? (d.totalBadQty/d.totalSample*100).toFixed(1) : '—';
+    const color = parseFloat(rate) > 10 ? 'var(--fail)' : parseFloat(rate) > 5 ? 'var(--warn)' : 'var(--pass)';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+      + '<span style="font-weight:700;min-width:50px;color:var(--navy)">' + hub + '</span>'
+      + '<div style="flex:1;background:#F0F4FC;border-radius:4px;height:8px"><div style="background:' + color + ';height:8px;border-radius:4px;width:' + Math.min(parseFloat(rate)||0, 100) + '%"></div></div>'
+      + '<span style="font-weight:700;color:' + color + ';min-width:50px;text-align:right">' + rate + '%</span>'
+      + '<span style="font-size:11px;color:var(--muted)">' + d.total + ' cek</span>'
+      + '</div>';
+  }).join('') || '<div style="color:var(--muted);text-align:center;padding:20px">Belum ada data</div>';
+}
+
+
 
 // ── SHEET LINK HELPERS ──
 function openSheetLink(inputId) {
@@ -2307,77 +2679,95 @@ function renderDashboard() {
   const na       = filtered.filter(r => r.result === 'unavailable').length;
   const uniqueSkus = new Set(filtered.map(r => r.sku)).size;
 
-  // Pass/defect rate = average of per-inspection bad% (badQty/sample)
+  // Pass rate % = good / total
+  const passRatePct = total ? (good/total*100).toFixed(1) + '%' : '—';
+  // Defect rate % = avg bad qty / sample qty
   const ratesWithData = filtered.filter(r => r.result === 'bad' && r.sample > 0);
-  const avgBadRate = ratesWithData.length
+  const avgDefectRate = ratesWithData.length
     ? (ratesWithData.reduce((s,r)=>s+((r.badQty||0)/r.sample*100),0)/ratesWithData.length).toFixed(1)+'%'
-    : (bad > 0 ? '100.0%' : '—');
-  const avgPassRate = total
-    ? ((good/total)*100).toFixed(1)+'%'
-    : '—';
+    : (bad > 0 ? '100.0%' : '0.0%');
+  // N/A rate
+  const naRate = total ? (na/total*100).toFixed(1)+'%' : '—';
 
-  // Stats
   document.getElementById('ds-total').textContent = total || '—';
-  document.getElementById('ds-total-sub').textContent = total ? (hub ? hub.split(' - ')[0] : 'All hubs') + (shift?' · Shift '+shift:'') : 'No records yet';
-  document.getElementById('ds-pass').textContent = total ? good : '—';
-  document.getElementById('ds-pass-sub').textContent = total ? (avgPassRate + ' pass rate') : '';
-  document.getElementById('ds-bad').textContent = total ? bad : '—';
-  document.getElementById('ds-bad-sub').textContent = total ? (avgBadRate + ' avg bad rate') : '';
-  document.getElementById('ds-sku').textContent = uniqueSkus || '—';
-  document.getElementById('ds-sku-sub').textContent = uniqueSkus ? uniqueSkus + ' unique SKUs inspected' : '';
+  document.getElementById('ds-total-sub').textContent = total ? (hub ? hub.split(' - ').slice(1).join(' ') || hub : 'All hubs') + (shift?' · Shift '+shift:'') : 'No records yet';
+  document.getElementById('ds-pass').textContent = total ? passRatePct : '—';
+  document.getElementById('ds-pass-sub').textContent = total ? good + ' SKU lolos inspeksi' : '';
+  document.getElementById('ds-bad').textContent = total ? avgDefectRate : '—';
+  document.getElementById('ds-bad-sub').textContent = total ? bad + ' SKU ditemukan defect' : '';
+  document.getElementById('ds-sku').textContent = total ? naRate : '—';
+  document.getElementById('ds-sku-sub').textContent = total ? na + ' SKU tidak ada fisik' : '';
 
-  // Top defect reasons
+  // Productivity
+  renderProductivity(filtered);
+
+  // (defect reasons computed below with hub filter)
+  // Defect reasons — filter by selected hub
+  const defectHubF = document.getElementById('defectHubFilter')?.value || '';
+  // Populate defect hub filter
+  const defHubSel = document.getElementById('defectHubFilter');
+  if (defHubSel && defHubSel.options.length <= 1) {
+    [...new Set(inspectionLog.map(r => r.hub).filter(Boolean))].sort().forEach(h => {
+      if (![...defHubSel.options].find(o => o.value === h)) defHubSel.appendChild(new Option(h.split(' - ')[0], h));
+    });
+  }
+  const defectLogs = defectHubF ? filtered.filter(r => r.hub === defectHubF || r.hub?.startsWith(defectHubF.split(' - ')[0])) : filtered;
   const reasonCounts = {};
-  filtered.filter(r => r.result === 'bad').forEach(r => {
-    (r.reasons||[]).forEach(rs => { if(rs) reasonCounts[rs] = (reasonCounts[rs]||0)+1; });
+  defectLogs.filter(r => r.result === 'bad').forEach(r => {
+    (r.reasons||[]).forEach(reason => { reasonCounts[reason] = (reasonCounts[reason]||0) + 1; });
   });
-  const sortedReasons = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const sortedReasons = Object.entries(reasonCounts).sort((a,b) => b[1]-a[1]);
   const maxR = sortedReasons[0]?.[1] || 1;
   const defectsEl = document.getElementById('dashDefects');
   if (defectsEl) {
     if (sortedReasons.length === 0) {
-      defectsEl.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">No defects in selected filter</div>';
+      defectsEl.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Tidak ada defect ditemukan</div>';
     } else {
       defectsEl.innerHTML = sortedReasons.map(([reason, count]) => {
         const pct = Math.round(count/maxR*100);
         const color = pct >= 66 ? 'var(--fail)' : pct >= 33 ? 'var(--warn)' : '#9CA3AF';
-        return `<div>
-          <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px">
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">${reason}</span>
-            <span style="color:${color};font-weight:700;flex-shrink:0">${count} items</span>
-          </div>
-          <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
-        </div>`;
+        return '<div>'
+          + '<div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px">'
+          + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">' + reason + '</span>'
+          + '<span style="color:' + color + ';font-weight:700;flex-shrink:0">' + count + ' items</span></div>'
+          + '<div class="prog-bar"><div class="prog-fill" style="width:' + pct + '%;background:' + color + '"></div></div>'
+          + '</div>';
       }).join('');
     }
   }
 
-  // Hub breakdown
-  const hubCounts = {};
-  logs.forEach(r => {
-    const h = r.hub || getHub() || 'Unknown';
-    if (!hubCounts[h]) hubCounts[h] = {total:0,bad:0};
-    hubCounts[h].total++;
-    if (r.result === 'bad') hubCounts[h].bad++;
+  // Top Hub by Defect Rate (sorted by bad qty / sample qty)
+  const hubMap2 = {};
+  inspectionLog.forEach(r => {
+    const h = (r.hub||'Unknown').split(' - ')[0];
+    if (!hubMap2[h]) hubMap2[h] = {name: r.hub||'Unknown', code: h, total:0, bad:0, totalBadQty:0, totalSample:0};
+    hubMap2[h].total++;
+    if (r.result === 'bad') {
+      hubMap2[h].bad++;
+      hubMap2[h].totalBadQty += (r.badQty||0);
+      hubMap2[h].totalSample += (r.sample||0);
+    }
   });
   const hubBreakEl = document.getElementById('dashHubBreakdown');
   if (hubBreakEl) {
-    const hubEntries = Object.entries(hubCounts).sort((a,b)=>b[1].total-a[1].total);
-    const maxH = hubEntries[0]?.[1]?.total || 1;
+    const hubEntries = Object.entries(hubMap2)
+      .map(([k,v]) => ({...v, defRate: v.totalSample > 0 ? v.totalBadQty/v.totalSample*100 : 0}))
+      .sort((a,b) => b.defRate - a.defRate)
+      .slice(0, 8);
+    const maxRate = hubEntries[0]?.defRate || 1;
     if (hubEntries.length === 0) {
-      hubBreakEl.innerHTML = '<div style="font-size:12px;color:var(--muted)">No data yet</div>';
+      hubBreakEl.innerHTML = '<div style="font-size:12px;color:var(--muted)">Belum ada data</div>';
     } else {
-      hubBreakEl.innerHTML = hubEntries.map(([h, c]) => {
-        const hubShort = h.split(' - ')[0];
-        const badPct = c.total ? (c.bad/c.total*100).toFixed(0)+'%' : '0%';
-        const isActive = hub && hub.startsWith(hubShort);
-        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;background:${isActive?'#EBF2FF':'transparent'}">
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--blue);width:44px;flex-shrink:0">${hubShort}</span>
-          <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${Math.round(c.total/maxH*100)}%;background:var(--ltblue)"></div></div>
-          <span style="font-size:11px;color:var(--text);font-weight:600;width:20px;flex-shrink:0">${c.total}</span>
-          <span style="font-size:10px;color:${c.bad?'var(--fail)':'var(--pass)'};width:32px;flex-shrink:0">${c.bad?'⚠'+badPct:'✓'}</span>
-          <button onclick="quickFilterHub('${h}')" style="font-size:10px;color:var(--blue);background:none;border:none;cursor:pointer;flex-shrink:0">Filter</button>
-        </div>`;
+      hubBreakEl.innerHTML = hubEntries.map(h => {
+        const color = h.defRate > 10 ? 'var(--fail)' : h.defRate > 5 ? 'var(--warn)' : 'var(--pass)';
+        const isActive = hub && hub.startsWith(h.code);
+        return '<div style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;background:' + (isActive?'#EBF2FF':'transparent') + '">'
+          + '<span style="font-family:DM Mono,monospace;font-size:11px;color:var(--blue);width:44px;flex-shrink:0">' + h.code + '</span>'
+          + '<div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:' + Math.round(h.defRate/maxRate*100) + '%;background:' + color + '"></div></div>'
+          + '<span style="font-size:11px;color:' + color + ';font-weight:700;width:44px;flex-shrink:0">' + h.defRate.toFixed(1) + '%</span>'
+          + '<span style="font-size:10px;color:var(--muted);width:30px;flex-shrink:0">' + h.total + 'x</span>'
+          + '<button onclick="quickFilterHub(\'' + h.name + '\')" style="font-size:10px;color:var(--blue);background:none;border:none;cursor:pointer;flex-shrink:0;padding:0 2px">Filter</button>'
+          + '</div>';
       }).join('');
     }
   }
@@ -2445,26 +2835,26 @@ function renderDashboard() {
         const photos = (r.photoUrls||[]).slice(0,5);
         const photoHtml = photos.length
           ? photos.map((p,i) => {
-              if (p && p.startsWith('data:image')) {
-                return '<img src="' + p + '" onclick="showPhotoModal(event,this)" style="width:30px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #E5E7EB;margin-right:2px" title="Tap untuk lihat">';
-              } else if (p && p.startsWith('http')) {
-                return '<a href="' + p + '" target="_blank" style="font-size:11px;color:var(--blue);margin-right:4px">📷' + (i+1) + '</a>';
-              }
+              if (p && p.startsWith('data:image')) return '<img src="'+p+'" onclick="showPhotoModal(event,this)" style="width:30px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #E5E7EB;margin-right:2px">';
+              if (p && p.startsWith('http')) return '<a href="'+p+'" target="_blank" style="font-size:11px;color:var(--blue);margin-right:4px">📷'+(i+1)+'</a>';
               return '';
             }).filter(Boolean).join('') || '—'
           : '—';
         const hubCode = (r.hub||'').split(' - ')[0];
         return '<tr>'
-          + '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + r.ts + '</td>'
-          + '<td style="white-space:nowrap"><span style="font-size:10px;background:#EBF2FF;padding:2px 5px;border-radius:4px;color:var(--blue)">' + hubCode + '</span></td>'
-          + '<td style="white-space:nowrap"><span style="font-family:DM Mono,monospace;font-size:10px;background:#F0F5FF;padding:2px 5px;border-radius:4px;color:var(--blue)">' + r.sku + '</span></td>'
-          + '<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.name + '</td>'
-          + '<td style="text-align:center">S' + r.shift + '</td>'
-          + '<td style="text-align:center;color:var(--fail);font-weight:600">' + (r.badQty||'—') + '</td>'
-          + '<td style="text-align:center;color:' + (r.result==='bad'?'var(--fail)':'var(--muted)') + '">' + badPct + '</td>'
-          + '<td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ((r.reasons||[]).join(', ')||'—') + '</td>'
-          + '<td style="white-space:nowrap">' + photoHtml + '</td>'
-          + '<td>' + rb + '</td>'
+          + '<td style="font-size:11px;color:var(--muted);white-space:nowrap">'+r.ts+'</td>'
+          + '<td><span style="font-size:10px;background:#EBF2FF;padding:2px 5px;border-radius:4px;color:var(--blue)">'+hubCode+'</span></td>'
+          + '<td><span style="font-family:DM Mono,monospace;font-size:10px;background:#F0F5FF;padding:2px 5px;border-radius:4px;color:var(--blue)">'+r.sku+'</span></td>'
+          + '<td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+r.name+'</td>'
+          + '<td style="text-align:center">S'+r.shift+'</td>'
+          + '<td style="text-align:center;color:var(--pass);font-weight:600">'+(r.goodQty||'—')+'</td>'
+          + '<td style="text-align:center;color:var(--fail);font-weight:600">'+(r.badQty||'—')+'</td>'
+          + '<td style="text-align:center;color:'+(r.result==='bad'?'var(--fail)':'var(--muted)')+'">'+badPct+'</td>'
+          + '<td style="font-size:10px;color:var(--muted);white-space:nowrap">'+(r.mfgDate||'—')+'</td>'
+          + '<td style="font-size:10px;color:'+(r.expDate?'#D97706':'var(--muted)')+';white-space:nowrap">'+(r.expDate||'—')+'</td>'
+          + '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((r.reasons||[]).join(', ')||'—')+'</td>'
+          + '<td>'+photoHtml+'</td>'
+          + '<td>'+rb+'</td>'
           + '</tr>';
       }).join('');
     }
@@ -2707,8 +3097,7 @@ async function loadResultsFromSheets() {
       showToast('🔄 ' + newEntries.length + ' data baru dari Sheets', '');
     }
   } catch(e) {
-    // Silently fail — offline or not configured
-    console.log('loadResultsFromSheets error:', e.message);
+    // Silently fail — offline or Apps Script not configured yet
   }
 }
 async function exportToSheets() {
@@ -2764,11 +3153,15 @@ async function syncSingleRecord(record) {
       category:       record.cat || '',
       stock_qty:      record.stock || 0,
       result:         (record.result || '').toUpperCase(),
+      good_qty:       record.goodQty || 0,
       bad_qty:        record.badQty || 0,
       defect_reasons: record.reasons || [],
+      reason_qtys:    record.reasonQtys || {},
       photo_urls:     record.photoUrls || [],
       inspector:      getInspector(),
       notes:          record.notes || '',
+      mfg_date:       record.mfgDate || '',
+      exp_date:       record.expDate || '',
     };
     const res  = await fetch(url, { method:'POST', body: JSON.stringify(payload) });
     const data = await res.json();
@@ -2810,8 +3203,10 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => openHubSelector(), 400);
   }
 
-  // Auto-sync inspection results from Sheets (cross-device sync)
-  setTimeout(() => loadResultsFromSheets(), 2000);
+  // Auto-sync inspection results from Sheets (cross-device sync) — only if URL configured
+  if (getScriptUrl()) {
+    setTimeout(() => loadResultsFromSheets(), 2000);
+  }
 
   // Bottom nav active state sync
   function syncBottomNav(pageId) {
@@ -2903,6 +3298,22 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="btn btn-primary" onclick="submitAdditionalSku()">✅ Tambah ke Priority List</button>
     </div>
   </div>
+</div>
+
+<!-- BARCODE SCANNER MODAL -->
+<div id="barcodeScannerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99999;flex-direction:column;align-items:center;justify-content:center">
+  <div style="color:white;font-size:16px;font-weight:700;margin-bottom:12px">📷 Scan Barcode / QR Code</div>
+  <div style="position:relative;width:min(340px,90vw);height:min(340px,90vw)">
+    <video id="barcodeVideo" style="width:100%;height:100%;object-fit:cover;border-radius:12px" autoplay playsinline></video>
+    <div style="position:absolute;inset:0;border:3px solid #2E7EF5;border-radius:12px;pointer-events:none"></div>
+    <div style="position:absolute;top:50%;left:10%;right:10%;height:2px;background:rgba(46,126,245,.7);transform:translateY(-50%)"></div>
+  </div>
+  <div id="scanResult" style="color:#4ADE80;font-size:13px;margin-top:12px;text-align:center;min-height:20px"></div>
+  <div style="display:flex;gap:10px;margin-top:16px">
+    <button onclick="closeBarcodeScanner()" style="background:rgba(255,255,255,.15);color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer">Batal</button>
+    <button id="scanConfirmBtn" onclick="confirmScanResult()" style="display:none;background:#2E7EF5;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✅ Gunakan Data Ini</button>
+  </div>
+  <div style="color:rgba(255,255,255,.5);font-size:11px;margin-top:8px;text-align:center">Arahkan kamera ke barcode produk</div>
 </div>
 
 <!-- PHOTO CHOICE SHEET -->
