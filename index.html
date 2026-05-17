@@ -491,16 +491,11 @@ tr:hover td { background: #F5F8FF; }
     </div>
   </div>
 
-  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="stat-card">
       <div class="stat-label">Checked ✅</div>
       <div class="stat-val green" id="checkedCount">0</div>
       <div class="stat-sub">SKU selesai dicek</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Bad / Defect ❌</div>
-      <div class="stat-val red" id="badCount">0</div>
-      <div class="stat-sub">Ditemukan defect</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Stok N/A 📭</div>
@@ -513,6 +508,8 @@ tr:hover td { background: #F5F8FF; }
       <div class="stat-sub">Belum dicek</div>
     </div>
   </div>
+  <!-- hidden for compat -->
+  <span id="badCount" style="display:none">0</span>
 
   <!-- Shift tabs -->
   <div class="shift-tabs">
@@ -529,7 +526,7 @@ tr:hover td { background: #F5F8FF; }
       <div style="font-size:10px;margin-top:2px" id="stab3-info">Target: 500 | Cek: 0 | Sisa: 500</div>
     </div>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="text" class="form-input" id="searchInput" placeholder="🔍 Cari SKU / nama produk..." oninput="filterItems()" style="width:220px;font-size:12px;padding:6px 10px">
+      <input type="text" class="form-input" id="searchInput" placeholder="🔍 Cari SKU / nama produk..." oninput="setTimeout(filterItems,10)" onkeyup="setTimeout(filterItems,10)" style="width:220px;font-size:12px;padding:6px 10px">
       <select class="form-input form-select" id="statusFilter" onchange="filterItems()" style="width:130px;font-size:12px;padding:6px 10px">
         <option value="">Semua Status</option>
         <option value="pending">⏳ Pending</option>
@@ -613,12 +610,15 @@ tr:hover td { background: #F5F8FF; }
   <!-- Productivity Section -->
   <div class="card" style="margin-bottom:14px">
     <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span><span class="ct-icon">⚡</span> Productivity Inspector</span>
+      <span><span class="ct-icon">⚡</span> Productivity Inspector — SKU</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <select id="prodHubFilter" class="form-input form-select" onchange="renderDashboard()" style="width:160px;font-size:11px;padding:3px 6px">
+        <select id="prodHubFilter" class="form-input form-select" onchange="renderDashboard()" style="width:150px;font-size:11px;padding:3px 6px">
           <option value="">Semua Hub</option>
         </select>
-        <select id="prodShiftFilter" class="form-input form-select" onchange="renderDashboard()" style="width:110px;font-size:11px;padding:3px 6px">
+        <select id="prodInspFilter" class="form-input form-select" onchange="renderDashboard()" style="width:140px;font-size:11px;padding:3px 6px">
+          <option value="">Semua Inspector</option>
+        </select>
+        <select id="prodShiftFilter" class="form-input form-select" onchange="renderDashboard()" style="width:100px;font-size:11px;padding:3px 6px">
           <option value="">Semua Shift</option>
           <option value="1">Shift 1</option>
           <option value="2">Shift 2</option>
@@ -628,20 +628,36 @@ tr:hover td { background: #F5F8FF; }
     </div>
     <!-- Summary per shift -->
     <div id="prodShiftSummary" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap"></div>
-    <!-- Per inspector table -->
+    <!-- Per inspector SKU table -->
     <div class="tbl-wrap" style="overflow-x:auto">
       <table style="min-width:500px">
-        <thead><tr><th>Inspector</th><th>Hub</th><th>Shift</th><th>Total Cek</th><th>Good</th><th>Bad</th><th>Defect %</th><th>SKU/jam</th><th>Durasi</th></tr></thead>
+        <thead><tr><th>Inspector</th><th>Hub</th><th>Shift</th><th>Total SKU</th><th>Good</th><th>Bad</th><th>SKU/jam</th><th>Durasi</th></tr></thead>
         <tbody id="prodTable"></tbody>
       </table>
     </div>
-    <div id="prodTotalRow" style="background:#F0F5FF;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:13px;font-weight:700;color:var(--navy)"></div>
+    <div id="prodTotalRow" style="background:#F0F5FF;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:13px;color:var(--navy)"></div>
+  </div>
+
+  <!-- Qty Performance Section -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">
+      <span><span class="ct-icon">📦</span> Productivity Inspector — Qty (pcs/pack dicek)</span>
+    </div>
+    <div class="tbl-wrap" style="overflow-x:auto">
+      <table style="min-width:500px">
+        <thead><tr><th>Inspector</th><th>Hub</th><th>Shift</th><th>Total Sample (pcs)</th><th>Good Qty</th><th>Bad Qty</th><th>pcs/jam</th><th>Durasi</th></tr></thead>
+        <tbody id="prodQtyTable"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="card" style="margin-bottom:14px">
-    <div class="card-title" style="justify-content:space-between">
+    <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span><span class="ct-icon">📦</span> SKU Performance</span>
-      <span style="font-size:11px;color:var(--muted)">Bad Rate = total bad qty ÷ total sample qty</span>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="skuPerfSearch" class="form-input" placeholder="🔍 Cari SKU / produk..." oninput="renderDashboard()" style="width:200px;font-size:12px;padding:5px 8px">
+        <span style="font-size:11px;color:var(--muted)">Bad Rate = bad qty ÷ sample qty</span>
+      </div>
     </div>
     <div class="tbl-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="min-width:600px">
@@ -1204,12 +1220,12 @@ function renderInspectionList(filter = '', statusOverride = '') {
   const statusF = statusOverride || document.getElementById('statusFilter')?.value || '';
   const items = inspItems.filter(item => {
     const status = getStatus(item, currentShiftTab);
-    const searchQ = filter.trim().toLowerCase();
+    const searchQ = (filter || '').trim().toLowerCase();
     const kws = searchQ ? searchQ.split(/\s+/).filter(Boolean) : [];
     const matchText = kws.length === 0 || kws.every(k =>
-      item.sku.toLowerCase().includes(k) ||
-      item.name.toLowerCase().includes(k) ||
-      (item.cat || '').toLowerCase().includes(k)
+      (item.sku  || '').toLowerCase().includes(k) ||
+      (item.name || '').toLowerCase().includes(k) ||
+      (item.cat  || item.category || '').toLowerCase().includes(k)
     );
     const matchStatus = !statusF || status === statusF;
     return matchText && matchStatus;
@@ -1356,31 +1372,46 @@ function filterItems() {
   renderInspectionList(q, s);
 }
 
+// Also expose as global for debugging
+window.debugSearch = function(q) {
+  const pool = inspItems;
+  const kws = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return pool.filter(item => kws.every(k =>
+    (item.sku||'').toLowerCase().includes(k) ||
+    (item.name||'').toLowerCase().includes(k) ||
+    (item.cat||item.category||'').toLowerCase().includes(k)
+  ));
+};
+
 function updateCounts() {
   const total   = inspItems.length || 500;
-  const checked = inspectionLog.length;
-  const bad     = inspectionLog.filter(r => r.result === 'bad').length;
-  const na      = inspectionLog.filter(r => r.result === 'unavailable').length;
-  document.getElementById('checkedCount').textContent = checked;
-  document.getElementById('badCount').textContent = bad;
-  document.getElementById('pendingCount').textContent = Math.max(0, total - checked);
-  document.getElementById('pendingBadge').textContent = Math.max(0, total - checked);
-  const pct = Math.round(checked / total * 100);
-  document.getElementById('sideProgress').style.width = Math.min(pct, 100) + '%';
-  const naEl = document.getElementById('naCount');
-  if (naEl) naEl.textContent = na;
+  const checked = inspItems.filter(item => {
+    const s = getStatus(item, currentShiftTab);
+    return s && s !== 'pending';
+  }).length;
+  const na = inspItems.filter(item => getStatus(item, currentShiftTab) === 'unavailable').length;
+  const pending = Math.max(0, total - checked);
 
-  // Per-shift: count how many inspItems have been checked in each shift
+  const el = id => document.getElementById(id);
+  if (el('checkedCount')) el('checkedCount').textContent = checked;
+  if (el('badCount'))     el('badCount').textContent = inspItems.filter(i => getStatus(i, currentShiftTab) === 'bad').length;
+  if (el('naCount'))      el('naCount').textContent = na;
+  if (el('pendingCount')) el('pendingCount').textContent = pending;
+  if (el('pendingBadge')) el('pendingBadge').textContent = pending;
+
+  const pct = total > 0 ? Math.round(checked / total * 100) : 0;
+  if (el('sideProgress')) el('sideProgress').style.width = Math.min(pct, 100) + '%';
+
+  // Per-shift: count items checked in each shift
   [1,2,3].forEach(s => {
-    const el = document.getElementById('stab' + s + '-info');
-    if (!el) return;
-    // Count items whose shift status is not 'pending'
+    const infoEl = el('stab' + s + '-info');
+    if (!infoEl) return;
     const shiftChecked = inspItems.filter(item => {
       const st = s === 1 ? item.shift1 : s === 2 ? item.shift2 : item.shift3;
       return st && st !== 'pending';
     }).length;
     const shiftPending = Math.max(0, total - shiftChecked);
-    el.textContent = 'Target: ' + total + ' | Cek: ' + shiftChecked + ' | Sisa: ' + shiftPending;
+    infoEl.textContent = 'Target: ' + total + ' | Cek: ' + shiftChecked + ' | Sisa: ' + shiftPending;
   });
 }
 
@@ -1856,95 +1887,176 @@ function closeBarcodeScanner() {
 }
 
 // ── Productivity rendering ──
+
+// ── Parse timestamp (ISO or Indonesian locale) ──
+function parseTimestamp(ts) {
+  if (!ts) return null;
+  const s = String(ts).trim();
+  // ISO format: 2026-05-16T13:20:04.274Z
+  if (s.includes('T') && s.includes('Z')) return new Date(s);
+  // Indonesian locale: 16/5/2026 20.20.02 or 16/5/2026, 20.20.02
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2})\.(\d{2})(?:\.(\d{2}))?/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5], +(m[6]||0));
+  // Try native Date parse
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
 function renderProductivity(filtered) {
-  const prodHubF   = document.getElementById('prodHubFilter')?.value || '';
+  const prodHubF   = document.getElementById('prodHubFilter')?.value   || '';
   const prodShiftF = document.getElementById('prodShiftFilter')?.value || '';
+  const prodInspF  = document.getElementById('prodInspFilter')?.value  || '';
 
-  let data = filtered.filter(r => {
-    const matchHub   = !prodHubF   || (r.hub||'').includes(prodHubF) || prodHubF.includes((r.hub||'').split(' - ')[0]);
-    const matchShift = !prodShiftF || String(r.shift) === prodShiftF;
-    return matchHub && matchShift;
-  });
-
-  // Populate prod hub filter
-  const prodHubSel = document.getElementById('prodHubFilter');
-  if (prodHubSel && prodHubSel.options.length <= 1) {
-    [...new Set(filtered.map(r => r.hub).filter(Boolean))].sort().forEach(h => {
-      if (![...prodHubSel.options].find(o => o.value === h)) prodHubSel.appendChild(new Option(h, h));
-    });
+  // Populate hub + inspector dropdowns
+  const prodHubSel  = document.getElementById('prodHubFilter');
+  const prodInspSel = document.getElementById('prodInspFilter');
+  if (prodHubSel) {
+    const cur = prodHubSel.value;
+    while (prodHubSel.options.length > 1) prodHubSel.remove(1);
+    [...new Set(inspectionLog.map(r=>r.hub).filter(Boolean))].sort()
+      .forEach(h => prodHubSel.appendChild(new Option(h.split(' - ')[0]+(h.includes(' - ')?' — '+h.split(' - ').slice(1).join(''):'')+' ('+h.split(' - ')[0]+')', h)));
+    prodHubSel.value = cur;
   }
+  if (prodInspSel) {
+    const cur = prodInspSel.value;
+    while (prodInspSel.options.length > 1) prodInspSel.remove(1);
+    [...new Set(inspectionLog.map(r=>r.inspector).filter(n => n && !n.startsWith('{')))]
+      .sort().forEach(n => prodInspSel.appendChild(new Option(n, n)));
+    prodInspSel.value = cur;
+  }
+
+  const data = inspectionLog.filter(r => {
+    const matchHub   = !prodHubF   || (r.hub||'').startsWith(prodHubF.split(' - ')[0]);
+    const matchShift = !prodShiftF || String(r.shift) === prodShiftF;
+    const matchInsp  = !prodInspF  || r.inspector === prodInspF;
+    // Exclude rows where inspector looks like JSON
+    const validInsp  = r.inspector && !r.inspector.startsWith('{');
+    return matchHub && matchShift && matchInsp && validInsp;
+  });
 
   // Group by inspector + shift + hub
   const groups = {};
   data.forEach(r => {
-    const key = (r.inspector||'Unknown') + '|' + r.shift + '|' + (r.hub||'?').split(' - ')[0];
-    if (!groups[key]) groups[key] = { inspector: r.inspector||'Unknown', shift: r.shift, hub: (r.hub||'?').split(' - ')[0], records: [], firstTs: null, lastTs: null };
-    groups[key].records.push(r);
-    const ts = new Date(r.ts);
-    if (!isNaN(ts)) {
-      if (!groups[key].firstTs || ts < groups[key].firstTs) groups[key].firstTs = ts;
-      if (!groups[key].lastTs  || ts > groups[key].lastTs)  groups[key].lastTs  = ts;
+    const insp = r.inspector || 'Unknown';
+    const hub  = (r.hub||'?').split(' - ')[0];
+    const key  = insp + '|' + r.shift + '|' + hub;
+    if (!groups[key]) groups[key] = {insp, shift: r.shift, hub, recs:[], first:null, last:null};
+    const g = groups[key];
+    g.recs.push(r);
+    const ts = parseTimestamp(r.ts);
+    if (ts) {
+      if (!g.first || ts < g.first) g.first = ts;
+      if (!g.last  || ts > g.last)  g.last  = ts;
     }
   });
 
-  const rows = Object.values(groups).sort((a,b) => b.records.length - a.records.length);
-  const tbody = document.getElementById('prodTable');
-  if (!tbody) return;
+  const rows = Object.values(groups).sort((a,b) => b.recs.length - a.recs.length);
 
-  if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
-    return;
+  // ── SKU table ──
+  const tbody = document.getElementById('prodTable');
+  if (tbody) {
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map(g => {
+        const total = g.recs.length;
+        const good  = g.recs.filter(r => r.result==='good').length;
+        const bad   = g.recs.filter(r => r.result==='bad').length;
+        const defPct = total ? (bad/total*100).toFixed(1)+'%' : '—';
+        let durMins=0, skuPerHour='—', durLabel='—';
+        if (g.first && g.last && g.last > g.first) {
+          durMins = Math.round((g.last - g.first)/60000);
+          if (durMins > 0) {
+            skuPerHour = (total/(durMins/60)).toFixed(1);
+            durLabel = (durMins>=60 ? Math.floor(durMins/60)+'j ' : '')+(durMins%60)+'m';
+          }
+        }
+        const defColor = parseFloat(defPct)>20?'var(--fail)':parseFloat(defPct)>10?'var(--warn)':'var(--muted)';
+        return '<tr>'
+          +'<td style="font-weight:700">'+g.insp+'</td>'
+          +'<td style="font-size:11px">'+g.hub+'</td>'
+          +'<td style="text-align:center">S'+g.shift+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--blue)">'+total+'</td>'
+          +'<td style="text-align:center;color:var(--pass)">'+good+'</td>'
+          +'<td style="text-align:center;color:var(--fail)">'+bad+'</td>'
+
+          +'<td style="text-align:center;font-weight:600;color:var(--navy)">'+skuPerHour+'</td>'
+          +'<td style="text-align:center;color:var(--muted);font-size:11px">'+durLabel+'</td>'
+          +'</tr>';
+      }).join('');
+    }
   }
 
-  tbody.innerHTML = rows.map(g => {
-    const total  = g.records.length;
-    const good   = g.records.filter(r => r.result === 'good').length;
-    const bad    = g.records.filter(r => r.result === 'bad').length;
-    const defPct = total ? (bad/total*100).toFixed(1)+'%' : '—';
-    let durMins = 0, skuPerHour = '—';
-    if (g.firstTs && g.lastTs && g.lastTs > g.firstTs) {
-      durMins = Math.round((g.lastTs - g.firstTs) / 60000);
-      skuPerHour = durMins > 0 ? (total / (durMins/60)).toFixed(1) : '—';
+  // ── Qty table — Defect% replaced by Durasi ──
+  const qtyGroups = {};
+  data.forEach(r => {
+    const insp = r.inspector || 'Unknown';
+    const hub  = (r.hub||'?').split(' - ')[0];
+    const key  = insp + '|' + r.shift + '|' + hub;
+    if (!qtyGroups[key]) qtyGroups[key] = {insp, shift:r.shift, hub, totalSample:0, totalGood:0, totalBad:0, first:null, last:null};
+    const g = qtyGroups[key];
+    g.totalSample += (r.sample||0);
+    g.totalGood   += (r.goodQty||(r.result==='good'?r.sample:0)||0);
+    g.totalBad    += (r.badQty||0);
+    const ts = parseTimestamp(r.ts);
+    if (ts) {
+      if (!g.first || ts < g.first) g.first = ts;
+      if (!g.last  || ts > g.last)  g.last  = ts;
     }
-    const durLabel = durMins >= 60 ? Math.floor(durMins/60)+'j '+(durMins%60)+'m' : durMins+'m';
-    return '<tr>'
-      + '<td style="font-weight:700">' + g.inspector + '</td>'
-      + '<td style="font-size:11px">' + g.hub + '</td>'
-      + '<td style="text-align:center">S' + g.shift + '</td>'
-      + '<td style="text-align:center;font-weight:700;color:var(--blue)">' + total + '</td>'
-      + '<td style="text-align:center;color:var(--pass)">' + good + '</td>'
-      + '<td style="text-align:center;color:var(--fail)">' + bad + '</td>'
-      + '<td style="text-align:center;color:' + (parseFloat(defPct)>10?'var(--fail)':parseFloat(defPct)>5?'var(--warn)':'var(--muted)') + ';font-weight:700">' + defPct + '</td>'
-      + '<td style="text-align:center;color:var(--navy);font-weight:600">' + skuPerHour + '</td>'
-      + '<td style="text-align:center;color:var(--muted);font-size:11px">' + (durMins > 0 ? durLabel : '—') + '</td>'
-      + '</tr>';
-  }).join('');
+  });
 
-  // Shift summary
+  const qtyTbody = document.getElementById('prodQtyTable');
+  if (qtyTbody) {
+    const qtyRows = Object.values(qtyGroups).sort((a,b) => b.totalSample-a.totalSample);
+    if (!qtyRows.length) {
+      qtyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
+    } else {
+      qtyTbody.innerHTML = qtyRows.map(g => {
+        let durMins=0, pcsPerHour='—', durLabel='—';
+        if (g.first && g.last && g.last > g.first) {
+          durMins = Math.round((g.last-g.first)/60000);
+          if (durMins>0) {
+            pcsPerHour = (g.totalSample/(durMins/60)).toFixed(0);
+            durLabel = (durMins>=60?Math.floor(durMins/60)+'j ':'')+(durMins%60)+'m';
+          }
+        }
+        return '<tr>'
+          +'<td style="font-weight:700">'+g.insp+'</td>'
+          +'<td style="font-size:11px">'+g.hub+'</td>'
+          +'<td style="text-align:center">S'+g.shift+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--blue)">'+g.totalSample+'</td>'
+          +'<td style="text-align:center;color:var(--pass)">'+g.totalGood+'</td>'
+          +'<td style="text-align:center;color:var(--fail)">'+g.totalBad+'</td>'
+          +'<td style="text-align:center;color:var(--navy);font-weight:600">'+pcsPerHour+' pcs</td>'
+          +'<td style="text-align:center;color:var(--muted);font-size:11px">'+durLabel+'</td>'
+          +'</tr>';
+      }).join('');
+    }
+  }
+
+  // ── Shift summary cards ──
   const shiftSummEl = document.getElementById('prodShiftSummary');
   if (shiftSummEl) {
-    const shiftData = [1,2,3].map(s => {
-      const sr = data.filter(r => r.shift === s);
-      const inspectors = new Set(sr.map(r => r.inspector).filter(Boolean)).size;
-      return { shift: s, total: sr.length, inspectors };
-    });
-    shiftSummEl.innerHTML = shiftData.map(s =>
-      '<div style="flex:1;min-width:120px;background:#F8FAFF;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">'
-      + '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Shift ' + s.shift + ' · ' + s.inspectors + ' inspector</div>'
-      + '<div style="font-size:20px;font-weight:800;color:var(--navy)">' + s.total + '</div>'
-      + '<div style="font-size:10px;color:var(--muted)">SKU dicek</div>'
-      + '</div>'
-    ).join('');
+    shiftSummEl.innerHTML = [1,2,3].map(s => {
+      const sr = data.filter(r=>r.shift===s);
+      const insp = new Set(sr.map(r=>r.inspector).filter(Boolean)).size;
+      const pcs  = sr.reduce((a,r)=>a+(r.sample||0),0);
+      return '<div style="flex:1;min-width:100px;background:#F8FAFF;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">'
+        +'<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Shift '+s+' · '+insp+' insp</div>'
+        +'<div style="font-size:20px;font-weight:800;color:var(--navy)">'+sr.length+'</div>'
+        +'<div style="font-size:10px;color:var(--muted)">SKU | '+pcs+' pcs</div></div>';
+    }).join('');
   }
 
-  // Total row
+  // ── Total row ──
   const totalEl = document.getElementById('prodTotalRow');
   if (totalEl) {
-    const totalInsp = new Set(data.map(r => r.inspector).filter(Boolean)).size;
-    const totalCek  = data.length;
-    totalEl.textContent = '📊 Total hari ini: ' + totalCek + ' SKU dicek oleh ' + totalInsp + ' inspector — Rata-rata ' + (totalInsp > 0 ? (totalCek/totalInsp).toFixed(1) : 0) + ' SKU/inspector';
+    const totalInsp = new Set(data.map(r=>r.inspector).filter(Boolean)).size;
+    const totalPcs  = data.reduce((s,r)=>s+(r.sample||0),0);
+    totalEl.innerHTML = '📊 Total: <b>'+data.length+'</b> SKU · <b>'+totalPcs+'</b> pcs · <b>'+totalInsp+'</b> inspector · Rata-rata '+(totalInsp>0?(data.length/totalInsp).toFixed(1):0)+' SKU/inspector';
   }
 }
+
 
 // ── Show all hubs modal ──
 function showAllHubsModal() {
@@ -2679,24 +2791,20 @@ function renderDashboard() {
   const na       = filtered.filter(r => r.result === 'unavailable').length;
   const uniqueSkus = new Set(filtered.map(r => r.sku)).size;
 
-  // Pass rate % = good / total
-  const passRatePct = total ? (good/total*100).toFixed(1) + '%' : '—';
-  // Defect rate % = avg bad qty / sample qty
-  const ratesWithData = filtered.filter(r => r.result === 'bad' && r.sample > 0);
-  const avgDefectRate = ratesWithData.length
-    ? (ratesWithData.reduce((s,r)=>s+((r.badQty||0)/r.sample*100),0)/ratesWithData.length).toFixed(1)+'%'
-    : (bad > 0 ? '100.0%' : '0.0%');
-  // N/A rate
-  const naRate = total ? (na/total*100).toFixed(1)+'%' : '—';
-
-  document.getElementById('ds-total').textContent = total || '—';
-  document.getElementById('ds-total-sub').textContent = total ? (hub ? hub.split(' - ').slice(1).join(' ') || hub : 'All hubs') + (shift?' · Shift '+shift:'') : 'No records yet';
-  document.getElementById('ds-pass').textContent = total ? passRatePct : '—';
-  document.getElementById('ds-pass-sub').textContent = total ? good + ' SKU lolos inspeksi' : '';
-  document.getElementById('ds-bad').textContent = total ? avgDefectRate : '—';
-  document.getElementById('ds-bad-sub').textContent = total ? bad + ' SKU ditemukan defect' : '';
-  document.getElementById('ds-sku').textContent = total ? naRate : '—';
-  document.getElementById('ds-sku-sub').textContent = total ? na + ' SKU tidak ada fisik' : '';
+  // Rates sum to 100% — qty-based
+  const totalSample  = filtered.reduce((s,r) => s+(r.sample||0), 0);
+  const totalGoodQty = filtered.reduce((s,r) => s+(r.goodQty||(r.result==='good'?r.sample:0)||0), 0);
+  const totalBadQty  = filtered.reduce((s,r) => s+(r.badQty||0), 0);
+  const totalNaQty   = filtered.filter(r => r.result==='unavailable').reduce((s,r) => s+(r.sample||0), 0);
+  const passRatePct   = totalSample ? (totalGoodQty/totalSample*100).toFixed(1)+'%' : '—';
+  const defectRatePct = totalSample ? (totalBadQty /totalSample*100).toFixed(1)+'%' : '—';
+  const naRatePct     = totalSample ? (totalNaQty  /totalSample*100).toFixed(1)+'%' : '—';
+  document.getElementById('ds-pass').textContent = totalSample ? passRatePct : '—';
+  document.getElementById('ds-pass-sub').textContent = totalSample ? totalGoodQty+' pcs lolos dari '+totalSample+' pcs' : '';
+  document.getElementById('ds-bad').textContent = totalSample ? defectRatePct : '—';
+  document.getElementById('ds-bad-sub').textContent = totalSample ? totalBadQty+' pcs defect dari '+totalSample+' pcs' : '';
+  document.getElementById('ds-sku').textContent = totalSample ? naRatePct : '—';
+  document.getElementById('ds-sku-sub').textContent = totalSample ? totalNaQty+' pcs tidak tersedia' : '';
 
   // Productivity
   renderProductivity(filtered);
@@ -2704,69 +2812,82 @@ function renderDashboard() {
   // (defect reasons computed below with hub filter)
   // Defect reasons — filter by selected hub
   const defectHubF = document.getElementById('defectHubFilter')?.value || '';
-  // Populate defect hub filter
+  // Populate defect hub filter dynamically
   const defHubSel = document.getElementById('defectHubFilter');
-  if (defHubSel && defHubSel.options.length <= 1) {
+  if (defHubSel) {
+    const currentDefHub = defHubSel.value;
+    while (defHubSel.options.length > 1) defHubSel.remove(1);
     [...new Set(inspectionLog.map(r => r.hub).filter(Boolean))].sort().forEach(h => {
-      if (![...defHubSel.options].find(o => o.value === h)) defHubSel.appendChild(new Option(h.split(' - ')[0], h));
+      defHubSel.appendChild(new Option(h.split(' - ')[0] + ' — ' + h.split(' - ').slice(1).join(' - '), h));
     });
+    defHubSel.value = currentDefHub;
   }
-  const defectLogs = defectHubF ? filtered.filter(r => r.hub === defectHubF || r.hub?.startsWith(defectHubF.split(' - ')[0])) : filtered;
+  const defectLogs = defectHubF
+    ? filtered.filter(r => (r.hub||'').startsWith(defectHubF.split(' - ')[0]))
+    : filtered;
   const reasonCounts = {};
+  const reasonQtyMap = {};
   defectLogs.filter(r => r.result === 'bad').forEach(r => {
-    (r.reasons||[]).forEach(reason => { reasonCounts[reason] = (reasonCounts[reason]||0) + 1; });
+    (r.reasons||[]).forEach(reason => {
+      if (!reason || /^\d+\.?\d*$/.test(reason.trim())) return; // skip numeric-only
+      reasonCounts[reason] = (reasonCounts[reason]||0) + 1;
+      const rq = r.reasonQtys && r.reasonQtys[reason];
+      reasonQtyMap[reason] = (reasonQtyMap[reason]||0) + (rq && !isNaN(rq) ? parseInt(rq) : 1);
+    });
   });
-  const sortedReasons = Object.entries(reasonCounts).sort((a,b) => b[1]-a[1]);
-  const maxR = sortedReasons[0]?.[1] || 1;
-  const defectsEl = document.getElementById('dashDefects');
+  const sortedReasons = Object.entries(reasonQtyMap).sort((a,b) => b[1]-a[1]);
+  const totalReasonOcc = Object.values(reasonQtyMap).reduce((s,v) => s+v, 0) || 1;
+    const defectsEl = document.getElementById('dashDefects');
   if (defectsEl) {
     if (sortedReasons.length === 0) {
       defectsEl.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Tidak ada defect ditemukan</div>';
     } else {
-      defectsEl.innerHTML = sortedReasons.map(([reason, count]) => {
-        const pct = Math.round(count/maxR*100);
-        const color = pct >= 66 ? 'var(--fail)' : pct >= 33 ? 'var(--warn)' : '#9CA3AF';
+      defectsEl.innerHTML = sortedReasons.slice(0,10).map(([reason, qty]) => {
+        const pct = (qty / totalReasonOcc * 100).toFixed(1);
+        const barW = Math.round(qty / sortedReasons[0][1] * 100);
+        const color = parseFloat(pct) >= 30 ? 'var(--fail)' : parseFloat(pct) >= 15 ? 'var(--warn)' : '#9CA3AF';
         return '<div>'
           + '<div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px">'
           + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">' + reason + '</span>'
-          + '<span style="color:' + color + ';font-weight:700;flex-shrink:0">' + count + ' items</span></div>'
-          + '<div class="prog-bar"><div class="prog-fill" style="width:' + pct + '%;background:' + color + '"></div></div>'
+          + '<span style="color:' + color + ';font-weight:700;flex-shrink:0">' + pct + '% (' + qty + ')</span>'
+          + '</div><div class="prog-bar"><div class="prog-fill" style="width:' + barW + '%;background:' + color + '"></div></div>'
           + '</div>';
       }).join('');
     }
   }
 
-  // Top Hub by Defect Rate (sorted by bad qty / sample qty)
+  // Top Hub  }
+
+  // Top Hub by Defect Rate — dynamic from inspectionLog
   const hubMap2 = {};
   inspectionLog.forEach(r => {
-    const h = (r.hub||'Unknown').split(' - ')[0];
-    if (!hubMap2[h]) hubMap2[h] = {name: r.hub||'Unknown', code: h, total:0, bad:0, totalBadQty:0, totalSample:0};
-    hubMap2[h].total++;
+    const code = (r.hub||'Unknown').split(' - ')[0];
+    if (!hubMap2[code]) hubMap2[code] = {name: r.hub||'Unknown', code, total:0, bad:0, totalBadQty:0, totalSample:0};
+    hubMap2[code].total++;
     if (r.result === 'bad') {
-      hubMap2[h].bad++;
-      hubMap2[h].totalBadQty += (r.badQty||0);
-      hubMap2[h].totalSample += (r.sample||0);
+      hubMap2[code].bad++;
+      hubMap2[code].totalBadQty += (r.badQty||0);
+      hubMap2[code].totalSample += (r.sample||0);
     }
   });
   const hubBreakEl = document.getElementById('dashHubBreakdown');
   if (hubBreakEl) {
-    const hubEntries = Object.entries(hubMap2)
-      .map(([k,v]) => ({...v, defRate: v.totalSample > 0 ? v.totalBadQty/v.totalSample*100 : 0}))
-      .sort((a,b) => b.defRate - a.defRate)
-      .slice(0, 8);
-    const maxRate = hubEntries[0]?.defRate || 1;
-    if (hubEntries.length === 0) {
+    const hubEntries = Object.values(hubMap2)
+      .map(h => ({...h, defRate: h.totalSample>0 ? h.totalBadQty/h.totalSample*100 : (h.bad>0?100:0)}))
+      .sort((a,b) => b.defRate - a.defRate).slice(0,8);
+    if (!hubEntries.length) {
       hubBreakEl.innerHTML = '<div style="font-size:12px;color:var(--muted)">Belum ada data</div>';
     } else {
+      const maxRate = Math.max(...hubEntries.map(h=>h.defRate), 1);
       hubBreakEl.innerHTML = hubEntries.map(h => {
-        const color = h.defRate > 10 ? 'var(--fail)' : h.defRate > 5 ? 'var(--warn)' : 'var(--pass)';
+        const color = h.defRate>20?'var(--fail)':h.defRate>10?'var(--warn)':'var(--pass)';
         const isActive = hub && hub.startsWith(h.code);
-        return '<div style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;background:' + (isActive?'#EBF2FF':'transparent') + '">'
-          + '<span style="font-family:DM Mono,monospace;font-size:11px;color:var(--blue);width:44px;flex-shrink:0">' + h.code + '</span>'
+        return '<div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;background:' + (isActive?'#EBF2FF':'transparent') + '">'
+          + '<span style="font-family:DM Mono,monospace;font-size:11px;color:var(--blue);min-width:40px">' + h.code + '</span>'
           + '<div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:' + Math.round(h.defRate/maxRate*100) + '%;background:' + color + '"></div></div>'
-          + '<span style="font-size:11px;color:' + color + ';font-weight:700;width:44px;flex-shrink:0">' + h.defRate.toFixed(1) + '%</span>'
-          + '<span style="font-size:10px;color:var(--muted);width:30px;flex-shrink:0">' + h.total + 'x</span>'
-          + '<button onclick="quickFilterHub(\'' + h.name + '\')" style="font-size:10px;color:var(--blue);background:none;border:none;cursor:pointer;flex-shrink:0;padding:0 2px">Filter</button>'
+          + '<span style="font-size:12px;color:' + color + ';font-weight:700;min-width:46px;text-align:right">' + h.defRate.toFixed(1) + '%</span>'
+          + '<span style="font-size:10px;color:var(--muted);min-width:24px">' + h.total + 'x</span>'
+          + '<button onclick="quickFilterHub(this.getAttribute(\"data-hub\"))" data-hub="' + h.name.replace(/"/g, '&quot;') + '" style="font-size:10px;color:var(--blue);background:none;border:none;cursor:pointer;padding:0 2px">Filter</button>'
           + '</div>';
       }).join('');
     }
@@ -2791,32 +2912,49 @@ function renderDashboard() {
   const skuRows = Object.values(skuMap).sort((a,b)=>b.bad-a.bad);
   const skuTbody = document.getElementById('dashSkuBreakdown');
   if (skuTbody) {
-    if (skuRows.length === 0) {
-      skuTbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No inspection records match this filter</td></tr>';
+    const skuPerfQ = (document.getElementById('skuPerfSearch')?.value || '').toLowerCase().trim();
+    const skuMap = {};
+    filtered.forEach(r => {
+      if (!r.sku) return;
+      if (!skuMap[r.sku]) skuMap[r.sku] = {sku:r.sku, name:r.name, hub:r.hub, records:[], totalSample:0, totalGood:0, totalBad:0, reasons:[], reasonQtys:{}};
+      const s = skuMap[r.sku];
+      s.records.push(r);
+      s.totalSample += (r.sample||0);
+      s.totalGood   += (r.goodQty||(r.result==='good'?r.sample:0)||0);
+      s.totalBad    += (r.badQty||0);
+      (r.reasons||[]).forEach(rn => { if(rn && !/^\d+\.?\d*$/.test(rn)) s.reasons.push(rn); });
+      if (r.reasonQtys) Object.entries(r.reasonQtys).forEach(([k,v]) => { s.reasonQtys[k]=(s.reasonQtys[k]||0)+parseInt(v||0); });
+    });
+    const skuEntries = Object.values(skuMap)
+      .filter(s => !skuPerfQ || s.sku.toLowerCase().includes(skuPerfQ) || (s.name||'').toLowerCase().includes(skuPerfQ))
+      .sort((a,b) => {
+        const ra = a.totalSample>0?a.totalBad/a.totalSample:0;
+        const rb = b.totalSample>0?b.totalBad/b.totalSample:0;
+        return rb-ra;
+      });
+    if (!skuEntries.length) {
+      skuTbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">Tidak ada data</td></tr>';
     } else {
-      skuTbody.innerHTML = skuRows.map(s => {
-        const badRate = s.totalSample > 0
-          ? (s.totalBadQty/s.totalSample*100).toFixed(1)+'%'
-          : (s.bad > 0 ? '100.0%' : '0.0%');
-        const topReason = Object.entries(s.reasons.reduce((acc,r)=>{acc[r]=(acc[r]||0)+1;return acc},{})).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
-        const resultColor = s.bad > 0 ? '#FEF2F2' : '#F0FDF4';
-        return '<tr style="background:' + resultColor + '">'
-          + '<td><span style="font-family:DM Mono,monospace;font-size:10px;background:#EBF2FF;padding:2px 6px;border-radius:4px;color:var(--blue)">' + s.sku + '</span></td>'
-          + '<td style="font-size:12px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + s.name + '</td>'
-          + '<td style="font-size:11px;color:var(--muted);white-space:nowrap">' + [...s.hubs].join(', ') + '</td>'
-          + '<td style="text-align:center;font-weight:700">' + s.total + '</td>'
-          + '<td style="text-align:center;color:var(--pass);font-weight:600">' + s.good + '</td>'
-          + '<td style="text-align:center;color:' + (s.bad?'var(--fail)':'var(--muted)') + ';font-weight:600">' + s.bad + '</td>'
-          + '<td style="text-align:center;font-weight:700;color:' + (parseFloat(badRate)>10?'var(--fail)':parseFloat(badRate)>5?'var(--warn)':'var(--muted)') + '">' + badRate + '</td>'
-          + '<td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + topReason + '</td>'
-          + '</tr>';
+      skuTbody.innerHTML = skuEntries.map(s => {
+        const badRate = s.totalSample>0 ? (s.totalBad/s.totalSample*100).toFixed(1)+'%' : '—';
+        const resultColor = s.totalBad>0 ? '#FEF2F2' : '#F0FDF4';
+        // Top reason by qty
+        const topReason = Object.entries(s.reasonQtys).sort((a,b)=>b[1]-a[1])[0]?.[0]
+          || [...new Set(s.reasons)][0] || '—';
+        return '<tr style="background:'+resultColor+'">'
+          +'<td style="font-family:DM Mono,monospace;font-size:11px;color:var(--blue)">'+s.sku+'</td>'
+          +'<td style="font-weight:500;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.name+'</td>'
+          +'<td style="font-size:11px;color:var(--muted)">'+s.hub+'</td>'
+          +'<td style="text-align:center;font-weight:700">'+s.records.length+'</td>'
+          +'<td style="text-align:center;color:var(--pass);font-weight:600">'+s.totalGood+'</td>'
+          +'<td style="text-align:center;color:var(--fail);font-weight:600">'+s.totalBad+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:'+(s.totalBad>0?'var(--fail)':'var(--pass)')+'">'+badRate+'</td>'
+          +'<td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+topReason+'</td>'
+          +'</tr>';
       }).join('');
     }
   }
 
-  // Inspection Log with filters + max 5 photos
-  const logSearch = (document.getElementById('logSearchInput')?.value || '').toLowerCase();
-  const logResult = document.getElementById('logResultFilter')?.value || '';
   const logTbody  = document.getElementById('dashboardLog');
   if (logTbody) {
     const logFiltered = filtered.filter(r => {
@@ -2852,7 +2990,7 @@ function renderDashboard() {
           + '<td style="text-align:center;color:'+(r.result==='bad'?'var(--fail)':'var(--muted)')+'">'+badPct+'</td>'
           + '<td style="font-size:10px;color:var(--muted);white-space:nowrap">'+(r.mfgDate||'—')+'</td>'
           + '<td style="font-size:10px;color:'+(r.expDate?'#D97706':'var(--muted)')+';white-space:nowrap">'+(r.expDate||'—')+'</td>'
-          + '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((r.reasons||[]).join(', ')||'—')+'</td>'
+          + '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((r.reasons||[]).filter(function(x){return x && !/^\d+\.?\d*$/.test(x.trim());}).join(', ')||'—')+'</td>'
           + '<td>'+photoHtml+'</td>'
           + '<td>'+rb+'</td>'
           + '</tr>';
@@ -2922,7 +3060,7 @@ function renderHistory() {
       +'<td style="text-align:center">'+(r.sample||'—')+'</td>'
       +'<td style="text-align:center;color:var(--fail);font-weight:600">'+(r.badQty||'—')+'</td>'
       +'<td style="text-align:center;color:'+(r.result==='bad'?'var(--fail)':'var(--muted)')+'">'+badPct+'</td>'
-      +'<td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((r.reasons||[]).join(', ')||'—')+'</td>'
+      +'<td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((r.reasons||[]).filter(function(x){return x && !/^\d+\.?\d*$/.test(x.trim());}).join(', ')||'—')+'</td>'
       +'<td style="white-space:nowrap">'+photoCell+'</td>'
       +'<td>'+rb+'</td>'
       +'</tr>';
@@ -3058,22 +3196,37 @@ async function loadResultsFromSheets() {
     if (!rows.length) return;
 
     // Map sheet columns → app inspectionLog format
-    const fromSheets = rows.map(r => ({
-      ts:       String(r['Timestamp']           || r['timestamp']      || ''),
-      hub:      String(r['Hub']                 || r['hub']            || ''),
-      sku:      String(r['SKU Number']          || r['sku_number']     || r['sku']         || ''),
-      name:     String(r['Product Name']        || r['product_name']   || r['name']        || ''),
-      cat:      String(r['L2 Category']         || r['l2_category']    || r['cat']         || ''),
-      shift:    parseInt(r['Shift']             || r['shift']          || 1),
-      stock:    parseInt(r['Stock Qty']         || r['stock_qty']      || 0) || 0,
-      sample:   parseInt(r['Sample Qty (75%)']  || r['sample_qty']     || 0) || 0,
-      result:   (r['Result']                    || r['result']         || '').toLowerCase(),
-      badQty:   parseInt(r['Bad Qty']           || r['bad_qty']        || 0) || 0,
-      reasons:  String(r['Defect Reasons']      || r['defect_reasons'] || '').split(',').map(s=>s.trim()).filter(Boolean),
-      photoUrls: [],
-      inspector: String(r['Inspector']          || r['inspector']      || ''),
-      notes:     String(r['Notes']              || r['notes']          || ''),
-    })).filter(r => r.sku);
+    const fromSheets = rows.map(r => {
+      // Detect format: new format has 'Good Qty' column header
+      const hasGoodQty = 'Good Qty' in r;
+      // Parse defect reasons - comma-separated, skip JSON strings and pure numbers
+      const reasonsRaw = String(r['Defect Reasons'] || '');
+      const reasons = (reasonsRaw && !reasonsRaw.startsWith('{'))
+        ? reasonsRaw.split(',').map(s=>s.trim()).filter(s => s && !/^\d+\.?\d*$/.test(s))
+        : [];
+      // Parse reasonQtys JSON
+      let reasonQtys = {};
+      const rqRaw = String(r['Reason Qtys'] || '');
+      if (rqRaw && rqRaw.startsWith('{')) { try { reasonQtys = JSON.parse(rqRaw); } catch(e) {} }
+      return {
+        ts:        String(r['Timestamp']          || ''),
+        hub:       String(r['Hub']                || ''),
+        sku:       String(r['SKU Number']         || ''),
+        name:      String(r['Product Name']       || ''),
+        cat:       String(r['L2 Category']        || ''),
+        shift:     parseInt(r['Shift']            || 1),
+        stock:     parseInt(r['Stock Qty']        || 0) || 0,
+        sample:    parseInt(r['Sample Qty (75%)'] || 0) || 0,
+        result:    String(r['Result']             || '').toLowerCase(),
+        goodQty:   hasGoodQty ? (parseInt(r['Good Qty'] || 0)||0) : 0,
+        badQty:    parseInt(r['Bad Qty']          || 0) || 0,
+        reasons,   reasonQtys,   photoUrls: [],
+        inspector: String(r['Inspector']          || ''),
+        notes:     String(r['Notes']              || ''),
+        mfgDate:   String(r['MFG Date']           || ''),
+        expDate:   String(r['EXP Date']           || ''),
+      };
+    }).filter(r => r.sku && r.ts);;
 
     if (!fromSheets.length) return;
 
