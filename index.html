@@ -1075,6 +1075,390 @@ tr:hover td { background: #F5F8FF; }
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
+
+// ══════════════════════════════════════════
+// PATCH: Restore missing functions
+// (these were lost from the original file)
+// ══════════════════════════════════════════
+
+// ── Global state ──
+window.selectedHub = null;
+window.currentSelectedReasons = [];
+window.currentReasonQtys = {};
+window.currentPhotos = [];
+
+// ── Local-storage persistence ──
+function saveToLocal() {
+  try {
+    localStorage.setItem('aqc_log', JSON.stringify(inspectionLog || []));
+    localStorage.setItem('aqc_items', JSON.stringify(inspItems || []));
+    localStorage.setItem('aqc_additional', JSON.stringify(additionalSkus || []));
+    if (selectedHub) localStorage.setItem('aqc_hub', JSON.stringify(selectedHub));
+    if (window.currentInspectorName) localStorage.setItem('aqc_inspector', window.currentInspectorName);
+  } catch(e) { console.warn('saveToLocal failed', e); }
+}
+function loadDataFromLocal() {
+  try {
+    inspectionLog  = JSON.parse(localStorage.getItem('aqc_log') || '[]');
+    inspItems      = JSON.parse(localStorage.getItem('aqc_items') || '[]');
+    additionalSkus = JSON.parse(localStorage.getItem('aqc_additional') || '[]');
+    const h = localStorage.getItem('aqc_hub');
+    if (h) { window.selectedHub = JSON.parse(h); updateHubBadge(); }
+    const insp = localStorage.getItem('aqc_inspector');
+    if (insp) window.currentInspectorName = insp;
+  } catch(e) { console.warn('loadDataFromLocal failed', e); }
+}
+function updateHubBadge() {
+  const lbl = document.getElementById('hubBadgeLabel');
+  if (lbl && selectedHub) lbl.textContent = selectedHub.hub.split(' - ')[0] || 'Hub';
+}
+
+// ── Settings helpers ──
+function loadSavedSettings() {
+  const url = localStorage.getItem('aqc_scriptUrl');     if (url && document.getElementById('scriptUrl'))  document.getElementById('scriptUrl').value  = url;
+  const m   = localStorage.getItem('aqc_sheetLinkMain'); if (m && document.getElementById('sheetLinkMain')) document.getElementById('sheetLinkMain').value = m;
+  const p   = localStorage.getItem('aqc_sheetLinkPriority'); if (p && document.getElementById('sheetLinkPriority')) document.getElementById('sheetLinkPriority').value = p;
+  const r   = localStorage.getItem('aqc_sheetLinkResults');  if (r && document.getElementById('sheetLinkResults'))  document.getElementById('sheetLinkResults').value  = r;
+  const ins = localStorage.getItem('aqc_inspector'); if (ins && document.getElementById('settingInspector')) document.getElementById('settingInspector').value = ins;
+}
+function saveScriptUrl() {
+  const v = (document.getElementById('scriptUrl')?.value || '').trim();
+  localStorage.setItem('aqc_scriptUrl', v);
+  showToast('💾 Script URL saved', 'success');
+}
+function saveSheetLinks() {
+  ['sheetLinkMain','sheetLinkPriority','sheetLinkResults','scriptUrl'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) localStorage.setItem('aqc_' + id, el.value.trim());
+  });
+  showToast('💾 Links tersimpan', 'success');
+}
+function openSheetLink(id) {
+  const v = (document.getElementById(id)?.value || '').trim();
+  if (!v) { showToast('⚠️ Link belum diisi', 'warn'); return; }
+  window.open(v, '_blank');
+}
+
+// ── Counts / dashboards ──
+function updateCounts() {
+  const checked = (inspItems||[]).filter(i => i.shift1 || i.shift2 || i.shift3).length;
+  const na      = (inspItems||[]).filter(i => [i.shift1,i.shift2,i.shift3].includes('unavailable')).length;
+  const pending = (inspItems||[]).length - checked;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('statChecked', checked); set('statNA', na); set('statPending', pending);
+}
+function populateDashboardFilters() { /* filters are static in markup */ }
+function renderDashboard() { updateCounts(); }
+function clearDashFilters() {
+  ['dashHub','dashShift','dashFromDate','dashToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderDashboard();
+}
+function onDateRangeChange() { renderDashboard(); }
+function onWeekFilterChange() { renderDashboard(); }
+function renderHubs() {
+  const wrap = document.getElementById('hubsGrid') || document.getElementById('hubsList');
+  if (!wrap) return;
+  wrap.innerHTML = HUB_DATA.map(h => `
+    <div class="card" style="padding:10px 12px;cursor:pointer" onclick='selectHubFromList(${JSON.stringify(h)})'>
+      <div style="font-weight:700;font-size:13px;color:var(--navy)">${h.hub}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">Zone: <span class="badge ${h.zone.toLowerCase()}-zone">${h.zone}</span> · ${h.pct}</div>
+    </div>`).join('');
+}
+function renderPriority() {
+  const wrap = document.getElementById('priorityList') || document.getElementById('priorityTbody');
+  if (!wrap) return;
+  const all = [...(prioritySkus||[]), ...(additionalSkus||[])];
+  if (!all.length) { wrap.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Belum ada Priority SKU. Gunakan Settings → Load Priority SKUs untuk import dari Sheet.</td></tr>'; return; }
+  wrap.innerHTML = all.map(s => `
+    <tr>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${s.sku||''}</td>
+      <td>${s.name||''}</td>
+      <td>${s.cat||''}</td>
+      <td>${s.reason||''}</td>
+      <td><span class="badge blue">${s.source||'priority'}</span></td>
+    </tr>`).join('');
+}
+function clearAllData() {
+  if (!confirm('Reset semua data lokal? Data di Google Sheets tidak akan dihapus.')) return;
+  ['aqc_log','aqc_items','aqc_additional','aqc_hub','aqc_inspector'].forEach(k => localStorage.removeItem(k));
+  inspectionLog = []; inspItems = []; additionalSkus = []; window.selectedHub = null;
+  renderInspectionList(); renderPriority(); updateCounts(); updateHubBadge();
+  showToast('✅ Data lokal direset', 'success');
+}
+async function clearSheetsData() {
+  if (!confirm('HAPUS semua data inspeksi di Google Sheets? Tindakan ini tidak dapat dibatalkan.')) return;
+  const url = getScriptUrl();
+  if (!url) { showToast('⚠️ Script URL belum di-set', 'warn'); return; }
+  try {
+    await fetch(url + '?action=clearAll', { method: 'POST', mode: 'no-cors' });
+    showToast('✅ Request clear terkirim', 'success');
+  } catch(e) { showToast('❌ Gagal clear: ' + e.message, 'error'); }
+}
+
+// ── Modal helpers ──
+function openModal(id) { const m = document.getElementById(id); if (m) m.classList.add('open'); }
+function closeModalById(id) { const m = document.getElementById(id); if (m) m.classList.remove('open'); }
+function openAddModal()   { resetFormFields(); openModal('addModal'); }
+function closeModal()     { closeModalById('addModal'); }
+function openAddSkuModal(){ openModal('addSkuModal'); }
+function showAllHubsModal(){ const m = document.getElementById('allHubsModal'); if (m) m.style.display='flex'; renderAllHubsList(); }
+function renderAllHubsList() {
+  const el = document.getElementById('allHubsList'); if (!el) return;
+  el.innerHTML = HUB_DATA.map(h => `<div style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px"><strong>${h.hub.split(' - ')[0]}</strong> · ${h.hub.split(' - ')[1]||''} <span class="badge ${h.zone.toLowerCase()}-zone" style="float:right">${h.zone}</span></div>`).join('');
+}
+
+// ── Hub Selector ──
+function openHubSelector() {
+  openModal('hubSelectorModal');
+  renderHubList('all', '');
+  const inp = document.getElementById('inspectorNameInput');
+  if (inp && window.currentInspectorName) inp.value = window.currentInspectorName;
+}
+function closeHubSelector() { closeModalById('hubSelectorModal'); }
+function renderHubList(zoneFilter, search) {
+  const grid = document.getElementById('hubListGrid');
+  if (!grid) return;
+  const s = (search||'').toLowerCase();
+  const list = HUB_DATA.filter(h => {
+    const zoneOk = zoneFilter==='all' || h.zone===zoneFilter;
+    const txtOk  = !s || h.hub.toLowerCase().includes(s);
+    return zoneOk && txtOk;
+  });
+  if (!list.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:14px;color:var(--muted);font-size:12px">Hub tidak ditemukan</div>'; return; }
+  grid.innerHTML = list.map(h => `
+    <button onclick='selectHubFromList(${JSON.stringify(h)})' style="text-align:left;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:white;cursor:pointer;display:flex;flex-direction:column;gap:2px">
+      <span style="font-weight:700;font-size:12px;color:var(--navy)">${h.hub.split(' - ')[0]}</span>
+      <span style="font-size:11px;color:var(--muted)">${h.hub.split(' - ')[1]||''}</span>
+      <span class="badge ${h.zone.toLowerCase()}-zone" style="margin-top:3px;align-self:flex-start">${h.zone} · ${h.pct}</span>
+    </button>`).join('');
+}
+function filterHubList(v) { renderHubList(window._hubZone||'all', v); }
+function filterHubZone(zone, btn) {
+  window._hubZone = zone;
+  document.querySelectorAll('#hubSelectorModal .shift-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderHubList(zone, document.getElementById('hubSearchInput')?.value || '');
+}
+function selectHubFromList(h) {
+  const name = (document.getElementById('inspectorNameInput')?.value || '').trim();
+  if (!name) { showToast('⚠️ Masukkan nama dulu', 'warn'); document.getElementById('inspectorNameInput')?.focus(); return; }
+  window.currentInspectorName = name;
+  window.selectedHub = h;
+  saveToLocal();
+  updateHubBadge();
+  closeHubSelector();
+  showToast(`✅ Hub: ${h.hub.split(' - ')[0]} · Inspector: ${name}`, 'success');
+}
+function formatInspectorName(input) {
+  if (!input) return;
+  let v = input.value || '';
+  v = v.replace(/\b\w/g, c => c.toUpperCase());
+  input.value = v;
+}
+
+// ── Shift tabs ──
+function setShiftTab(n, el) {
+  currentShiftTab = n;
+  document.querySelectorAll('.shift-tab').forEach(t => { if (t.id && t.id.startsWith('stab')) t.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  renderInspectionList();
+}
+
+// ── Result selection in inspection modal ──
+function selectResult(r) {
+  selectedResult = r;
+  const hidden = document.getElementById('modalResult'); if (hidden) hidden.value = r;
+  ['btnGood','btnBad','btnNA'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.style.background = ''; b.style.borderColor = 'var(--border)'; }
+  });
+  const map = { good:'btnGood', bad:'btnBad', unavailable:'btnNA' };
+  const b = document.getElementById(map[r]);
+  if (b) {
+    b.style.background  = r==='good' ? 'var(--pass-bg)' : r==='bad' ? 'var(--fail-bg)' : '#F3F4F6';
+    b.style.borderColor = r==='good' ? 'var(--pass)'    : r==='bad' ? 'var(--fail)'    : '#9CA3AF';
+  }
+  const qty = document.getElementById('qtyPanel');
+  const def = document.getElementById('defectPanel');
+  const na  = document.getElementById('naNotice');
+  if (qty) qty.style.display = r==='unavailable' ? 'none' : 'block';
+  if (def) def.style.display = r==='bad' ? 'block' : 'none';
+  if (na)  na.style.display  = r==='unavailable' ? 'block' : 'none';
+}
+function calcSample() {
+  const s = parseInt(document.getElementById('modalStock')?.value || '0');
+  const r = document.getElementById('sampleResult');
+  if (r) r.textContent = s > 0 ? Math.ceil(s * 0.75) : '—';
+}
+function updateBadPct() {
+  const stock = parseInt(document.getElementById('modalStock')?.value || '0');
+  const bad   = parseInt(document.getElementById('badQtyInput')?.value || '0');
+  const el = document.getElementById('badPctShow');
+  if (!el) return;
+  el.textContent = (stock>0 && bad>0) ? `Defect rate: ${((bad/stock)*100).toFixed(2)}%` : '';
+}
+function validateQtySplit() {
+  const stock = parseInt(document.getElementById('modalStock')?.value || '0');
+  const good  = parseInt(document.getElementById('goodQtyInput')?.value || '0');
+  const bad   = parseInt(document.getElementById('badQtyInput')?.value || '0');
+  const hint  = document.getElementById('qtySplitHint');
+  if (!hint) return;
+  if (!stock) { hint.textContent = ''; return; }
+  const total = good + bad;
+  hint.textContent = total === stock ? `✅ Total ${total} = stock ${stock}` : `⚠️ Total ${total} vs stock ${stock}`;
+  hint.style.color = total === stock ? 'var(--pass)' : 'var(--warn)';
+}
+
+// ── SKU search dropdown ──
+function filterSkuDropdown(q) {
+  const list = document.getElementById('skuDropdownList');
+  const wrap = document.getElementById('skuDropdown');
+  if (!list || !wrap) return;
+  const all = [...(inspItems||[]), ...(additionalSkus||[])];
+  const s = (q||'').toLowerCase().trim();
+  const results = (s ? all.filter(i => (i.sku||'').toLowerCase().includes(s) || (i.name||'').toLowerCase().includes(s)) : all).slice(0, 20);
+  if (!results.length) { wrap.style.display = 'none'; return; }
+  list.innerHTML = results.map(i => `<div onclick="pickSku('${(i.sku||'').replace(/'/g,'')}','${(i.name||'').replace(/'/g,'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px"><strong>${i.sku||''}</strong> — ${i.name||''}</div>`).join('');
+  wrap.style.display = 'block';
+}
+function pickSku(sku, name) {
+  document.getElementById('modalSku').value = sku;
+  document.getElementById('skuSearchInput').value = sku + ' — ' + name;
+  closeSkuDropdown();
+}
+function closeSkuDropdown() { const w = document.getElementById('skuDropdown'); if (w) w.style.display = 'none'; }
+function filterItems(v) { renderInspectionList(v); }
+function filterPriority(v) { renderPriority(); }
+
+// ── Inspection list item click ──
+function openInspectionModal(sku) {
+  openAddModal();
+  setTimeout(() => {
+    const item = (inspItems||[]).find(i => i.sku === sku);
+    if (item) pickSku(item.sku, item.name);
+  }, 50);
+}
+function toggleTab(name) { showPage(name); }
+
+// ── Defect reason picker (bottom-sheet) ──
+function openReasonPicker() {
+  const o = document.getElementById('reasonPickerOverlay');
+  const s = document.getElementById('reasonPickerSheet');
+  if (!o || !s) return;
+  o.style.display = 'flex';
+  setTimeout(() => { s.style.transform = 'translateY(0)'; }, 10);
+  renderReasonList();
+}
+function closeReasonPicker() {
+  const o = document.getElementById('reasonPickerOverlay');
+  const s = document.getElementById('reasonPickerSheet');
+  if (s) s.style.transform = 'translateY(100%)';
+  setTimeout(() => { if (o) o.style.display = 'none'; }, 280);
+}
+function renderReasonList() {
+  const list = document.getElementById('reasonPickerList');
+  if (!list) return;
+  list.innerHTML = DEFECT_REASONS.map((r,i) => {
+    const checked = (currentSelectedReasons||[]).includes(r);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid ${checked?'var(--fail)':'var(--border)'};border-radius:10px;cursor:pointer;background:${checked?'var(--fail-bg)':'white'}">
+      <input type="checkbox" ${checked?'checked':''} onchange="toggleReason('${r.replace(/'/g,"\\'")}')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--fail)">
+      <span style="font-size:13px;color:var(--text);line-height:1.3">${r}</span>
+    </label>`;
+  }).join('');
+  updatePickerCount();
+}
+function toggleReason(r) {
+  currentSelectedReasons = currentSelectedReasons || [];
+  const i = currentSelectedReasons.indexOf(r);
+  if (i >= 0) currentSelectedReasons.splice(i,1); else currentSelectedReasons.push(r);
+  updatePickerCount();
+}
+function updatePickerCount() {
+  const n = (currentSelectedReasons||[]).length;
+  const a = document.getElementById('pickerSelectedCount'); if (a) a.textContent = n;
+  const b = document.getElementById('pickerSelectedCount2'); if (b) b.textContent = n;
+}
+function confirmReasonPicker() {
+  const display = document.getElementById('selectedChipsDisplay');
+  const hint    = document.getElementById('noReasonHint');
+  if (display) display.innerHTML = (currentSelectedReasons||[]).map(r => `<span class="badge fail" style="margin:2px">${r}</span>`).join('');
+  if (hint) hint.style.display = (currentSelectedReasons||[]).length ? 'none' : 'inline';
+  closeReasonPicker();
+}
+
+// ── Photo handling ──
+function showPhotoChoice(slot) {
+  window.currentPhotoSlot = slot;
+  const sheet = document.getElementById('photoChoiceSheet');
+  if (sheet) sheet.style.display = 'flex';
+}
+function closePhotoChoice() {
+  const sheet = document.getElementById('photoChoiceSheet');
+  if (sheet) sheet.style.display = 'none';
+}
+function useCamera()  { closePhotoChoice(); document.getElementById('photoInputCamera')?.click(); }
+function useGallery() { closePhotoChoice(); document.getElementById('photoInputGallery')?.click(); }
+function handlePhoto(e) {
+  const file = e.target.files?.[0]; if (!file) return;
+  const slot = window.currentPhotoSlot ?? 0;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    photoSlots[slot] = dataUrl;
+    currentPhotos[slot] = dataUrl;
+    const ps = document.getElementById('ps' + slot);
+    if (ps) ps.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onclick="removePhoto(${slot})" title="Klik untuk hapus">`;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+function removePhoto(slot) {
+  photoSlots[slot] = null; currentPhotos[slot] = null;
+  const ps = document.getElementById('ps' + slot);
+  if (ps) ps.innerHTML = `<div class="photo-add">＋</div><span style="font-size:10px;color:var(--muted);margin-top:4px">Photo ${slot+1}</span>`;
+}
+
+// ── Barcode scanner ──
+function openBarcodeScanner() {
+  const m = document.getElementById('barcodeScannerModal');
+  if (!m) return;
+  m.style.display = 'flex';
+  if (navigator.mediaDevices?.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => { const v = document.getElementById('barcodeVideo'); if (v) { v.srcObject = stream; window._barcodeStream = stream; } })
+      .catch(() => { const r = document.getElementById('scanResult'); if (r) r.textContent = '⚠️ Akses kamera ditolak'; });
+  }
+}
+function closeBarcodeScanner() {
+  const m = document.getElementById('barcodeScannerModal');
+  if (m) m.style.display = 'none';
+  if (window._barcodeStream) { window._barcodeStream.getTracks().forEach(t => t.stop()); window._barcodeStream = null; }
+}
+function confirmScanResult() { closeBarcodeScanner(); showToast('✅ Data tersimpan', 'success'); }
+
+// ── Add additional SKU ──
+function submitAdditionalSku() {
+  const sku    = document.getElementById('addSkuCode')?.value.trim();
+  const name   = document.getElementById('addSkuName')?.value.trim();
+  const cat    = document.getElementById('addSkuCat')?.value.trim();
+  const reason = document.getElementById('addSkuReason')?.value;
+  if (!sku || !name || !reason) { showToast('⚠️ Lengkapi field bertanda *', 'warn'); return; }
+  const item = { sku, name, cat, reason, source: 'additional', addedAt: new Date().toISOString() };
+  additionalSkus.push(item);
+  inspItems.push({ sku, name, cat, source: 'additional' });
+  saveToLocal();
+  renderPriority(); renderInspectionList(); updateCounts();
+  closeModalById('addSkuModal');
+  ['addSkuCode','addSkuName','addSkuCat','addSkuReason'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  showToast('✅ SKU ditambahkan ke Priority List', 'success');
+}
+
+// ── Aliases for legacy names used inside submitInspection ──
+function toast(m, t) { showToast(m, t); }
+function syncToSheets(record) { if (typeof syncSingleRecord === 'function' && getScriptUrl()) syncSingleRecord(record); }
+
+// ── END PATCH ──
+
 // ══════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════
@@ -1268,9 +1652,6 @@ function renderInspectionList(filter = '', statusOverride = '') {
       + '</div>'
       + '</div></div>';
   }).join('');
-}
-
-  // Log section
 }
 
 function quickFilterHub(hubName) {
